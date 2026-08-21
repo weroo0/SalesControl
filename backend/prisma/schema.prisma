@@ -11,3 +11,106 @@ generator client {
 datasource db {
   provider = "postgresql"
 }
+
+model Cliente {
+  id        Int      @id @default(autoincrement())
+  nombre    String
+  telefono  String?
+  direccion String?
+  notas     String?
+  activo    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  ventas    Venta[]
+  pagos     Pago[]
+}
+
+model Categoria {
+  id        Int        @id @default(autoincrement())
+  nombre    String     @unique
+  activo    Boolean    @default(true)
+  createdAt DateTime   @default(now())
+  productos Producto[]
+}
+
+model Producto {
+  id             Int            @id @default(autoincrement())
+  nombre         String
+  precio         Decimal
+  activo         Boolean        @default(true)
+  createdAt      DateTime       @default(now())
+  categoriaId    Int
+  categoria      Categoria      @relation(fields: [categoriaId], references: [id])
+  detallesVentas DetalleVenta[]
+}
+
+model Usuario {
+  id           Int      @id @default(autoincrement())
+  nombre       String
+  email        String   @unique
+  passwordHash String
+  rol          Role     @default(ADMIN)
+  activo       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  ventas       Venta[]
+  pagos        Pago[]
+}
+
+model Venta {
+  id            Int            @id @default(autoincrement())
+  tipoVenta     TipoVenta      @default(FIADO)
+  total         Decimal
+  fecha         DateTime       @default(now())
+  createdAt     DateTime       @default(now())
+  estado        Estado         @default(ACTIVA)
+  clienteId     Int
+  cliente       Cliente        @relation(fields: [clienteId], references: [id])
+  usuarioId     Int
+  usuario       Usuario        @relation(fields: [usuarioId], references: [id])
+  detalleVentas DetalleVenta[]
+}
+
+model DetalleVenta {
+  id             Int      @id @default(autoincrement())
+  cantidad       Int
+  precioUnitario Decimal
+  subtotal       Decimal
+  ventaId        Int
+  venta          Venta    @relation(fields: [ventaId], references: [id])
+  productoId     Int
+  producto       Producto @relation(fields: [productoId], references: [id])
+}
+
+model Pago {
+  id         Int      @id @default(autoincrement())
+  monto      Decimal
+  metodoPago TipoPago @default(EFECTIVO)
+  fechaPago  DateTime @default(now())
+  estado     Estado   @default(ACTIVA)
+  notas      String?
+  createdAt  DateTime @default(now())
+  clienteId  Int
+  cliente    Cliente  @relation(fields: [clienteId], references: [id])
+  usuarioId  Int
+  usuario    Usuario  @relation(fields: [usuarioId], references: [id])
+}
+
+enum Role {
+  ADMIN
+  VENDEDOR
+}
+
+enum TipoVenta {
+  CONTADO
+  FIADO
+}
+
+enum Estado {
+  ACTIVA
+  CANCELADA
+}
+
+enum TipoPago {
+  EFECTIVO
+  TRANSFERENCIA
+  OTRO
+}
