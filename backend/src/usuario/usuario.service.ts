@@ -146,4 +146,18 @@ export class UsuarioService {
       },
     });
   }
+
+  async findByEmailForAuth(email: string) {
+    return this.prisma.usuario.findUnique({
+      where: { email },
+      select: {
+        id: true,
+        nombre: true,
+        email: true,
+        passwordHash: true,
+        rol: true,
+        activo: true,
+      },
+    });
+  }
 }
