@@ -10,11 +10,12 @@ import { JwtService } from '@nestjs/jwt';
 import { UsuarioService } from '../../usuario/usuario.service.js';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator.js';
 import { Request } from 'express';
+import { Role } from 'generated/prisma/enums.js';
 
 interface JwtPayload {
   sub: number;
   email: string;
-  rol: string;
+  rol: Role;
 }
 
 type RequestWithUser = Request & {
@@ -72,7 +73,11 @@ export class AuthGuard implements CanActivate {
       throw new ForbiddenException('Usuario desactivado');
     }
 
-    request.user = payload;
+    request.user = {
+      sub: usuario.id,
+      email: usuario.email,
+      rol: usuario.rol,
+    };
 
     return true;
   }

@@ -10,7 +10,10 @@ import {
 import { UsuarioService } from './usuario.service.js';
 import { CreateUsuarioDto } from './dto/create-usuario.dto.js';
 import { UpdateUsuarioDto } from './dto/update-usuario.dto.js';
+import { Roles } from '../auth/decorators/roles.decorator.js';
+import { Role } from '../../generated/prisma/enums.js';
 
+@Roles(Role.ADMIN)
 @Controller('usuarios')
 export class UsuarioController {
   constructor(private readonly usuarioService: UsuarioService) {}
