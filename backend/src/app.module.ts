@@ -9,6 +9,7 @@ import { ProductoModule } from './producto/producto.module.js';
 import { UsuarioModule } from './usuario/usuario.module.js';
 import { AuthModule } from './auth/auth.module.js';
 import { VentaModule } from './venta/venta.module.js';
+import { PagoModule } from './pago/pago.module.js';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { VentaModule } from './venta/venta.module.js';
     UsuarioModule,
     AuthModule,
     VentaModule,
+    PagoModule,
   ],
   controllers: [AppController],
   providers: [AppService],

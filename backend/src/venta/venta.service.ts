@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { CreateVentaDto } from './dto/create-venta.dto.js';
-import { Prisma } from '../../generated/prisma/client.js';
+import { Estado, Prisma } from '../../generated/prisma/client.js';
 
 @Injectable()
 export class VentaService {
@@ -104,6 +104,106 @@ export class VentaService {
             producto: true,
           },
         },
+      },
+    });
+  }
+
+  async findAll() {
+    return this.prisma.venta.findMany({
+      include: {
+        cliente: {
+          select: {
+            id: true,
+            nombre: true,
+          },
+        },
+
+        usuario: {
+          select: {
+            id: true,
+            nombre: true,
+            email: true,
+          },
+        },
+
+        detalleVentas: {
+          include: {
+            producto: {
+              select: {
+                id: true,
+                nombre: true,
+              },
+            },
+          },
+        },
+      },
+
+      orderBy: {
+        fecha: 'desc',
+      },
+    });
+  }
+
+  async findOne(id: number) {
+    const venta = await this.prisma.venta.findUnique({
+      where: {
+        id,
+      },
+
+      include: {
+        cliente: {
+          select: {
+            id: true,
+            nombre: true,
+            telefono: true,
+          },
+        },
+
+        usuario: {
+          select: {
+            id: true,
+            nombre: true,
+            email: true,
+          },
+        },
+
+        detalleVentas: {
+          include: {
+            producto: {
+              select: {
+                id: true,
+                nombre: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!venta) {
+      throw new NotFoundException('Venta no encontrada');
+    }
+
+    return venta;
+  }
+
+  async cancelar(id: number) {
+    const venta = await this.prisma.venta.findUnique({
+      where: { id },
+    });
+
+    if (!venta) {
+      throw new NotFoundException('Venta no encontrada');
+    }
+
+    if (venta.estado === Estado.CANCELADA) {
+      throw new ConflictException('La venta ya se encuentra cancelada');
+    }
+
+    return this.prisma.venta.update({
+      where: { id },
+      data: {
+        estado: Estado.CANCELADA,
       },
     });
   }
