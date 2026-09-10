@@ -88,4 +88,76 @@ export class PagoService {
       },
     });
   }
+
+  async findAll() {
+    return this.prisma.pago.findMany({
+      where: {
+        estado: Estado.ACTIVA,
+      },
+      include: {
+        cliente: {
+          select: {
+            id: true,
+            nombre: true,
+          },
+        },
+        usuario: {
+          select: {
+            id: true,
+            nombre: true,
+          },
+        },
+      },
+      orderBy: {
+        fechaPago: 'desc',
+      },
+    });
+  }
+
+  async findOne(id: number) {
+    const pago = await this.prisma.pago.findUnique({
+      where: { id },
+      include: {
+        cliente: {
+          select: {
+            id: true,
+            nombre: true,
+          },
+        },
+        usuario: {
+          select: {
+            id: true,
+            nombre: true,
+          },
+        },
+      },
+    });
+
+    if (!pago) {
+      throw new NotFoundException('Pago no encontrado');
+    }
+
+    return pago;
+  }
+
+  async cancelar(id: number) {
+    const pago = await this.prisma.pago.findUnique({
+      where: { id },
+    });
+
+    if (!pago) {
+      throw new NotFoundException('Pago no encontrado');
+    }
+
+    if (pago.estado === Estado.CANCELADA) {
+      throw new ConflictException('El pago ya está cancelado');
+    }
+
+    return this.prisma.pago.update({
+      where: { id },
+      data: {
+        estado: Estado.CANCELADA,
+      },
+    });
+  }
 }

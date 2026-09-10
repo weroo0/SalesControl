@@ -30,6 +30,11 @@ export class ClienteController {
     return this.clienteService.findOne(id);
   }
 
+  @Get(':id/estado-cuenta')
+  estadoCuenta(@Param('id', ParseIntPipe) id: number) {
+    return this.clienteService.estadoCuenta(id);
+  }
+
   @Patch(':id')
   updateOne(
     @Param('id', ParseIntPipe) id: number,
