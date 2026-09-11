@@ -53,12 +53,6 @@ export class PagoService {
       throw new NotFoundException('Cliente no encontrado');
     }
 
-    if (!cliente.activo) {
-      throw new ConflictException(
-        'No se puede registrar un pago para un cliente inactivo',
-      );
-    }
-
     const saldoPendiente = await this.calcularSaldoCliente(
       createPagoDto.clienteId,
     );

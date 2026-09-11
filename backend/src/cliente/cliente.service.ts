@@ -160,16 +160,103 @@ export class ClienteService {
       })),
     ];
 
-    movimientos.sort((a, b) => b.fecha.getTime() - a.fecha.getTime());
+    movimientos.sort((a, b) => a.fecha.getTime() - b.fecha.getTime());
+
+    let saldoAcumulado = new Prisma.Decimal(0);
+
+    const movimientosConSaldo = movimientos.map((movimiento) => {
+      if (movimiento.tipo === 'VENTA') {
+        saldoAcumulado = saldoAcumulado.add(movimiento.monto);
+      } else {
+        saldoAcumulado = saldoAcumulado.sub(movimiento.monto);
+      }
+
+      return {
+        ...movimiento,
+        saldo: saldoAcumulado,
+      };
+    });
+
+    movimientosConSaldo.reverse();
 
     return {
       cliente,
       totalVentas,
       totalPagos,
       saldo,
-      ventas,
-      pagos,
-      movimientos,
+      movimientos: movimientosConSaldo,
     };
+  }
+
+  async findConDeuda() {
+    const ventas = await this.prisma.venta.groupBy({
+      by: ['clienteId'],
+      where: {
+        tipoVenta: TipoVenta.FIADO,
+        estado: Estado.ACTIVA,
+      },
+      _sum: {
+        total: true,
+      },
+    });
+
+    const pagos = await this.prisma.pago.groupBy({
+      by: ['clienteId'],
+      where: {
+        estado: Estado.ACTIVA,
+      },
+      _sum: {
+        monto: true,
+      },
+    });
+
+    const clienteIds = ventas.map((venta) => venta.clienteId);
+
+    const clientes = await this.prisma.cliente.findMany({
+      where: {
+        id: {
+          in: clienteIds,
+        },
+      },
+      select: {
+        id: true,
+        nombre: true,
+        telefono: true,
+        activo: true,
+      },
+    });
+
+    const ventasPorCliente = new Map(
+      ventas.map((venta) => [
+        venta.clienteId,
+        venta._sum.total ?? new Prisma.Decimal(0),
+      ]),
+    );
+
+    const pagosPorCliente = new Map(
+      pagos.map((pago) => [
+        pago.clienteId,
+        pago._sum.monto ?? new Prisma.Decimal(0),
+      ]),
+    );
+
+    return clientes
+      .map((cliente) => {
+        const totalVentas =
+          ventasPorCliente.get(cliente.id) ?? new Prisma.Decimal(0);
+
+        const totalPagos =
+          pagosPorCliente.get(cliente.id) ?? new Prisma.Decimal(0);
+
+        const saldo = totalVentas.sub(totalPagos);
+
+        return {
+          ...cliente,
+          totalVentas,
+          totalPagos,
+          saldo,
+        };
+      })
+      .filter((cliente) => cliente.saldo.greaterThan(0));
   }
 }

@@ -25,6 +25,11 @@ export class ClienteController {
     return this.clienteService.findAll();
   }
 
+  @Get('con-deuda')
+  findConDeuda() {
+    return this.clienteService.findConDeuda();
+  }
+
   @Get(':id')
   findOne(@Param('id', ParseIntPipe) id: number) {
     return this.clienteService.findOne(id);
