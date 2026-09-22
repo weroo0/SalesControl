@@ -189,26 +189,46 @@ export class ClienteService {
   }
 
   async findConDeuda() {
-    const ventas = await this.prisma.venta.groupBy({
-      by: ['clienteId'],
-      where: {
-        tipoVenta: TipoVenta.FIADO,
-        estado: Estado.ACTIVA,
-      },
-      _sum: {
-        total: true,
-      },
-    });
+    const ahora = new Date();
 
-    const pagos = await this.prisma.pago.groupBy({
-      by: ['clienteId'],
-      where: {
-        estado: Estado.ACTIVA,
-      },
-      _sum: {
-        monto: true,
-      },
-    });
+    const { inicio, fin } = this.obtenerCicloCobranza(ahora);
+
+    const [ventas, pagos, pagosSemana] = await Promise.all([
+      this.prisma.venta.groupBy({
+        by: ['clienteId'],
+        where: {
+          tipoVenta: TipoVenta.FIADO,
+          estado: Estado.ACTIVA,
+        },
+        _sum: {
+          total: true,
+        },
+      }),
+
+      this.prisma.pago.groupBy({
+        by: ['clienteId'],
+        where: {
+          estado: Estado.ACTIVA,
+        },
+        _sum: {
+          monto: true,
+        },
+      }),
+
+      this.prisma.pago.groupBy({
+        by: ['clienteId'],
+        where: {
+          estado: Estado.ACTIVA,
+          fechaPago: {
+            gte: inicio,
+            lte: ahora,
+          },
+        },
+        _sum: {
+          monto: true,
+        },
+      }),
+    ]);
 
     const clienteIds = ventas.map((venta) => venta.clienteId);
 
@@ -240,13 +260,23 @@ export class ClienteService {
       ]),
     );
 
-    return clientes
+    const pagosSemanaPorCliente = new Map(
+      pagosSemana.map((pago) => [
+        pago.clienteId,
+        pago._sum.monto ?? new Prisma.Decimal(0),
+      ]),
+    );
+
+    const clientesConDeuda = clientes
       .map((cliente) => {
         const totalVentas =
           ventasPorCliente.get(cliente.id) ?? new Prisma.Decimal(0);
 
         const totalPagos =
           pagosPorCliente.get(cliente.id) ?? new Prisma.Decimal(0);
+
+        const totalPagadoEstaSemana =
+          pagosSemanaPorCliente.get(cliente.id) ?? new Prisma.Decimal(0);
 
         const saldo = totalVentas.sub(totalPagos);
 
@@ -255,8 +285,63 @@ export class ClienteService {
           totalVentas,
           totalPagos,
           saldo,
+          pagoEstaSemana: totalPagadoEstaSemana.greaterThan(0),
+          totalPagadoEstaSemana,
         };
       })
       .filter((cliente) => cliente.saldo.greaterThan(0));
+
+    const clientesConDeudaQuePagaron = clientesConDeuda.filter(
+      (cliente) => cliente.pagoEstaSemana,
+    ).length;
+
+    const clientesConDeudaQueNoPagaron = clientesConDeuda.filter(
+      (cliente) => !cliente.pagoEstaSemana,
+    ).length;
+
+    const totalPorCobrar = clientesConDeuda.reduce(
+      (total, cliente) => total.add(cliente.saldo),
+      new Prisma.Decimal(0),
+    );
+
+    const totalCobradoEstaSemana = pagosSemana.reduce(
+      (total, pago) => total.add(pago._sum.monto ?? new Prisma.Decimal(0)),
+      new Prisma.Decimal(0),
+    );
+
+    return {
+      periodo: {
+        inicio,
+        fin,
+      },
+
+      resumen: {
+        clientesConDeuda: clientesConDeuda.length,
+        clientesConDeudaQuePagaron,
+        clientesConDeudaQueNoPagaron,
+        totalPorCobrar,
+        totalCobradoEstaSemana,
+      },
+
+      clientes: clientesConDeuda,
+    };
+  }
+
+  private obtenerCicloCobranza(fecha = new Date()) {
+    const inicio = new Date(fecha);
+
+    inicio.setHours(0, 0, 0, 0);
+
+    const diasDesdeSabado = (inicio.getDay() + 1) % 7;
+
+    inicio.setDate(inicio.getDate() - diasDesdeSabado);
+
+    const fin = new Date(inicio);
+    fin.setDate(fin.getDate() + 7);
+
+    return {
+      inicio,
+      fin,
+    };
   }
 }
