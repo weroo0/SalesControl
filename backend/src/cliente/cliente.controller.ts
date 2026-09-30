@@ -10,7 +10,10 @@ import {
 import { ClienteService } from './cliente.service.js';
 import { CreateClienteDto } from './dto/create-cliente.dto.js';
 import { UpdateClienteDto } from './dto/update-cliente.dto.js';
+import { Roles } from '../auth/decorators/roles.decorator.js';
+import { Role } from '../../generated/prisma/enums.js';
 
+@Roles(Role.ADMIN, Role.VENDEDOR)
 @Controller('clientes')
 export class ClienteController {
   constructor(private readonly clienteService: ClienteService) {}
@@ -48,11 +51,13 @@ export class ClienteController {
     return this.clienteService.updateOne(id, updateClienteDto);
   }
 
+  @Roles(Role.ADMIN)
   @Patch(':id/desactivar')
   desactivateOne(@Param('id', ParseIntPipe) id: number) {
     return this.clienteService.desactivateOne(id);
   }
 
+  @Roles(Role.ADMIN)
   @Patch(':id/activar')
   activateOne(@Param('id', ParseIntPipe) id: number) {
     return this.clienteService.activateOne(id);

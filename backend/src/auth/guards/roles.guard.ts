@@ -3,21 +3,13 @@ import {
   ExecutionContext,
   ForbiddenException,
   Injectable,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { Request } from 'express';
 import { Role } from 'generated/prisma/enums.js';
 import { ROLES_KEY } from '../decorators/roles.decorator.js';
-
-interface AuthenticatedUser {
-  sub: number;
-  email: string;
-  rol: Role;
-}
-
-type RequestWithUser = Request & {
-  user?: AuthenticatedUser;
-};
+import { RequestWithUser } from '../types/auth.types.js';
 
 @Injectable()
 export class RolesGuard implements CanActivate {
@@ -38,7 +30,7 @@ export class RolesGuard implements CanActivate {
     const user = request.user;
 
     if (!user) {
-      throw new ForbiddenException(
+      throw new UnauthorizedException(
         'No se pudo determinar el usuario autenticado',
       );
     }

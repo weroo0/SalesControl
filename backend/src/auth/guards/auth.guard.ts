@@ -11,16 +11,13 @@ import { UsuarioService } from '../../usuario/usuario.service.js';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator.js';
 import { Request } from 'express';
 import { Role } from 'generated/prisma/enums.js';
+import { RequestWithUser } from '../types/auth.types.js';
 
 interface JwtPayload {
   sub: number;
   email: string;
   rol: Role;
 }
-
-type RequestWithUser = Request & {
-  user?: JwtPayload;
-};
 
 @Injectable()
 export class AuthGuard implements CanActivate {
@@ -42,11 +39,7 @@ export class AuthGuard implements CanActivate {
 
     const request = context.switchToHttp().getRequest<RequestWithUser>();
 
-    console.log(request.headers.authorization);
-
     const token = this.extractTokenFromHeader(request);
-    console.log('token extraido:', token);
-    console.log('partes del jwt:', token?.split('.').length);
 
     if (!token) {
       throw new UnauthorizedException('Token de autenticación requerido');
@@ -56,8 +49,6 @@ export class AuthGuard implements CanActivate {
 
     try {
       payload = await this.jwtService.verifyAsync<JwtPayload>(token);
-
-      console.log('payload:', payload);
     } catch (error) {
       console.log('error al verificar jwt:', error);
       throw new UnauthorizedException('Token inválido o expirado');
@@ -83,7 +74,9 @@ export class AuthGuard implements CanActivate {
   }
 
   private extractTokenFromHeader(request: Request): string | undefined {
-    const [type, token] = request.headers.authorization?.split(' ') ?? [];
+    const authorization = request.headers.authorization;
+
+    const [type, token] = authorization?.trim().split(/\s+/) ?? [];
 
     return type === 'Bearer' ? token : undefined;
   }

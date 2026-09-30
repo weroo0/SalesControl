@@ -1,4 +1,5 @@
 import { Role } from '../../../generated/prisma/enums.js';
+import { Request } from 'express';
 
 export interface AuthenticatedUser {
   sub: number;

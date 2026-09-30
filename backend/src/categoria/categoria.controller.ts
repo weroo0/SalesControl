@@ -10,7 +10,10 @@ import {
 import { CategoriaService } from './categoria.service.js';
 import { CreateCategoriaDto } from './dto/create-categoria.dto.js';
 import { UpdateCategoriaDto } from './dto/update-categoria.dto.js';
+import { Roles } from '../auth/decorators/roles.decorator.js';
+import { Role } from '../../generated/prisma/enums.js';
 
+@Roles(Role.ADMIN)
 @Controller('categorias')
 export class CategoriaController {
   constructor(private readonly categoriaService: CategoriaService) {}
