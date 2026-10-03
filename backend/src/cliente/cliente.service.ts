@@ -4,6 +4,7 @@ import { Prisma } from '../../generated/prisma/client.js';
 import { CreateClienteDto } from './dto/create-cliente.dto.js';
 import { UpdateClienteDto } from './dto/update-cliente.dto.js';
 import { Estado, TipoVenta } from '../../generated/prisma/client.js';
+import { ClienteQueryDto } from './dto/cliente-query.dto.js';
 
 @Injectable()
 export class ClienteService {
@@ -20,12 +21,43 @@ export class ClienteService {
     });
   }
 
-  async findAll() {
-    return this.prisma.cliente.findMany({
-      where: {
-        activo: true,
-      },
-    });
+  async findAll(query: ClienteQueryDto) {
+    const where: Prisma.ClienteWhereInput = {
+      activo: query.activo ?? true,
+    };
+
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 10;
+    const skip = (page - 1) * limit;
+
+    if (query.nombre) {
+      where.nombre = {
+        contains: query.nombre,
+        mode: 'insensitive',
+      };
+    }
+
+    const [clientes, total] = await this.prisma.$transaction([
+      this.prisma.cliente.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: {
+          id: 'asc',
+        },
+      }),
+
+      this.prisma.cliente.count({
+        where,
+      }),
+    ]);
+    return {
+      data: clientes,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
   }
 
   async findOne(id: number) {

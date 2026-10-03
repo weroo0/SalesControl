@@ -1,4 +1,10 @@
-import { IsEnum, IsNumber, IsOptional, IsPositive, IsString } from 'class-validator';
+import {
+  IsEnum,
+  IsNumber,
+  IsOptional,
+  IsPositive,
+  IsString,
+} from 'class-validator';
 import { TipoPago } from '../../../generated/prisma/enums.js';
 
 export class CreatePagoDto {

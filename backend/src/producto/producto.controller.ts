@@ -6,12 +6,14 @@ import {
   Param,
   ParseIntPipe,
   Patch,
+  Query,
 } from '@nestjs/common';
 import { ProductoService } from './producto.service.js';
 import { CreateProductoDto } from './dto/create-producto.dto.js';
 import { UpdateProductoDto } from './dto/update-producto.dto.js';
 import { Roles } from '../auth/decorators/roles.decorator.js';
 import { Role } from '../../generated/prisma/enums.js';
+import { ProductoQueryDto } from './dto/producto-query.dto.js';
 
 @Controller('productos')
 export class ProductoController {
@@ -25,8 +27,8 @@ export class ProductoController {
 
   @Roles(Role.ADMIN, Role.VENDEDOR)
   @Get()
-  findAll() {
-    return this.productoService.findAll();
+  findAll(@Query() query: ProductoQueryDto) {
+    return this.productoService.findAll(query);
   }
 
   @Roles(Role.ADMIN, Role.VENDEDOR)

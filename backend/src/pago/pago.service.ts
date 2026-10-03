@@ -37,7 +37,6 @@ export class PagoService {
     const totalVentas = ventas._sum.total ?? new Prisma.Decimal(0);
 
     const totalPagos = pagos._sum.monto ?? new Prisma.Decimal(0);
-    console.log(totalVentas);
 
     return totalVentas.sub(totalPagos);
   }
