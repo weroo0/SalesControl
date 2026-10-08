@@ -1,9 +1,20 @@
-import { Body, Controller, Get, Param, ParseIntPipe, Patch, Post, Req } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  ParseIntPipe,
+  Patch,
+  Post,
+  Query,
+  Req,
+} from '@nestjs/common';
 import { VentaService } from './venta.service.js';
 import { CreateVentaDto } from './dto/create-venta.dto.js';
 import type { RequestWithUser } from '../auth/types/auth.types.js';
 import { Roles } from '../auth/decorators/roles.decorator.js';
 import { Role } from '../../generated/prisma/enums.js';
+import { VentaQueryDto } from './dto/venta-query.dto.js';
 
 @Roles(Role.ADMIN, Role.VENDEDOR)
 @Controller('ventas')
@@ -19,8 +30,8 @@ export class VentaController {
   }
 
   @Get()
-  findAll() {
-    return this.ventaService.findAll();
+  findAll(@Query() query: VentaQueryDto) {
+    return this.ventaService.findAll(query);
   }
 
   @Get(':id')

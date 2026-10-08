@@ -7,6 +7,7 @@ import {
 import { PrismaService } from '../prisma/prisma.service.js';
 import { CreateVentaDto } from './dto/create-venta.dto.js';
 import { Estado, Prisma } from '../../generated/prisma/client.js';
+import { VentaQueryDto } from './dto/venta-query.dto.js';
 
 @Injectable()
 export class VentaService {
@@ -98,7 +99,13 @@ export class VentaService {
       },
       include: {
         cliente: true,
-        usuario: true,
+        usuario: {
+          select: {
+            id: true,
+            nombre: true,
+            email: true,
+          },
+        },
         detalleVentas: {
           include: {
             producto: true,
@@ -108,40 +115,108 @@ export class VentaService {
     });
   }
 
-  async findAll() {
-    return this.prisma.venta.findMany({
-      include: {
-        cliente: {
-          select: {
-            id: true,
-            nombre: true,
-          },
-        },
+  async findAll(query: VentaQueryDto) {
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 10;
 
-        usuario: {
-          select: {
-            id: true,
-            nombre: true,
-            email: true,
-          },
-        },
+    const skip = (page - 1) * limit;
 
-        detalleVentas: {
-          include: {
-            producto: {
-              select: {
-                id: true,
-                nombre: true,
+    const where: Prisma.VentaWhereInput = {};
+
+    if (query.clienteId !== undefined) {
+      where.clienteId = query.clienteId;
+    }
+
+    if (query.usuarioId !== undefined) {
+      where.usuarioId = query.usuarioId;
+    }
+
+    if (query.tipoVenta !== undefined) {
+      where.tipoVenta = query.tipoVenta;
+    }
+
+    if (query.estado !== undefined) {
+      where.estado = query.estado;
+    }
+
+    if (
+      query.fechaDesde &&
+      query.fechaHasta &&
+      query.fechaDesde > query.fechaHasta
+    ) {
+      throw new BadRequestException(
+        'La fecha inicial no puede ser posterior a la final',
+      );
+    }
+
+    const fechaFilter: Prisma.DateTimeFilter = {};
+
+    if (query.fechaDesde) {
+      fechaFilter.gte = new Date(`${query.fechaDesde}T00:00:00`);
+    }
+
+    if (query.fechaHasta) {
+      const fechaHasta = new Date(`${query.fechaHasta}T00:00:00`);
+      fechaHasta.setDate(fechaHasta.getDate() + 1);
+
+      fechaFilter.lt = fechaHasta;
+    }
+
+    if (query.fechaDesde || query.fechaHasta) {
+      where.fecha = fechaFilter;
+    }
+
+    const [ventas, total] = await this.prisma.$transaction([
+      this.prisma.venta.findMany({
+        where,
+        skip,
+        take: limit,
+
+        include: {
+          cliente: {
+            select: {
+              id: true,
+              nombre: true,
+            },
+          },
+
+          usuario: {
+            select: {
+              id: true,
+              nombre: true,
+              email: true,
+            },
+          },
+
+          detalleVentas: {
+            include: {
+              producto: {
+                select: {
+                  id: true,
+                  nombre: true,
+                },
               },
             },
           },
         },
-      },
 
-      orderBy: {
-        fecha: 'desc',
-      },
-    });
+        orderBy: {
+          fecha: 'desc',
+        },
+      }),
+
+      this.prisma.venta.count({
+        where,
+      }),
+    ]);
+
+    return {
+      data: ventas,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
   }
 
   async findOne(id: number) {

@@ -7,6 +7,7 @@ import {
 import { Estado, Prisma, TipoVenta } from '../../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { CreatePagoDto } from './dto/create-pago.dto.js';
+import { PagoQueryDto } from './dto/pago-query.dto.js';
 
 @Injectable()
 export class PagoService {
@@ -82,29 +83,96 @@ export class PagoService {
     });
   }
 
-  async findAll() {
-    return this.prisma.pago.findMany({
-      where: {
-        estado: Estado.ACTIVA,
-      },
-      include: {
-        cliente: {
-          select: {
-            id: true,
-            nombre: true,
+  async findAll(query: PagoQueryDto) {
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 10;
+
+    const skip = (page - 1) * limit;
+
+    const where: Prisma.PagoWhereInput = {};
+
+    if (query.clienteId !== undefined) {
+      where.clienteId = query.clienteId;
+    }
+
+    if (query.usuarioId !== undefined) {
+      where.usuarioId = query.usuarioId;
+    }
+
+    if (query.metodoPago !== undefined) {
+      where.metodoPago = query.metodoPago;
+    }
+
+    if (query.estado !== undefined) {
+      where.estado = query.estado;
+    }
+
+    if (
+      query.fechaDesde &&
+      query.fechaHasta &&
+      query.fechaDesde > query.fechaHasta
+    ) {
+      throw new BadRequestException(
+        'La fechaDesde no puede ser posterior a fechaHasta',
+      );
+    }
+
+    const fechaFilter: Prisma.DateTimeFilter = {};
+
+    if (query.fechaDesde) {
+      fechaFilter.gte = new Date(`${query.fechaDesde}T00:00:00`);
+    }
+
+    if (query.fechaHasta) {
+      const fechaHasta = new Date(`${query.fechaHasta}T00:00:00`);
+      fechaHasta.setDate(fechaHasta.getDate() + 1);
+
+      fechaFilter.lt = fechaHasta;
+    }
+
+    if (query.fechaDesde || query.fechaHasta) {
+      where.fechaPago = fechaFilter;
+    }
+
+    const [pagos, total] = await this.prisma.$transaction([
+      this.prisma.pago.findMany({
+        where,
+        skip,
+        take: limit,
+
+        include: {
+          cliente: {
+            select: {
+              id: true,
+              nombre: true,
+            },
+          },
+
+          usuario: {
+            select: {
+              id: true,
+              nombre: true,
+            },
           },
         },
-        usuario: {
-          select: {
-            id: true,
-            nombre: true,
-          },
+
+        orderBy: {
+          fechaPago: 'desc',
         },
-      },
-      orderBy: {
-        fechaPago: 'desc',
-      },
-    });
+      }),
+
+      this.prisma.pago.count({
+        where,
+      }),
+    ]);
+
+    return {
+      data: pagos,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
   }
 
   async findOne(id: number) {

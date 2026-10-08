@@ -6,6 +6,7 @@ import {
   ParseIntPipe,
   Patch,
   Post,
+  Query,
   Req,
 } from '@nestjs/common';
 import { PagoService } from './pago.service.js';
@@ -13,6 +14,7 @@ import { CreatePagoDto } from './dto/create-pago.dto.js';
 import type { RequestWithUser } from '../auth/types/auth.types.js';
 import { Roles } from '../auth/decorators/roles.decorator.js';
 import { Role } from '../../generated/prisma/enums.js';
+import { PagoQueryDto } from './dto/pago-query.dto.js';
 
 @Roles(Role.ADMIN, Role.VENDEDOR)
 @Controller('pagos')
@@ -28,8 +30,8 @@ export class PagoController {
   }
 
   @Get()
-  findAll() {
-    return this.pagoService.findAll();
+  findAll(@Query() query: PagoQueryDto) {
+    return this.pagoService.findAll(query);
   }
 
   @Get(':id')

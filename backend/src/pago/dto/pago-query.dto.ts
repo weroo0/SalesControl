@@ -1,4 +1,3 @@
-import { Type } from 'class-transformer';
 import {
   IsDateString,
   IsEnum,
@@ -7,9 +6,10 @@ import {
   Max,
   Min,
 } from 'class-validator';
-import { Estado, TipoVenta } from '../../../generated/prisma/enums.js';
+import { Type } from 'class-transformer';
+import { Estado, TipoPago } from '../../../generated/prisma/client.js';
 
-export class VentaQueryDto {
+export class PagoQueryDto {
   @IsOptional()
   @Type(() => Number)
   @IsInt()
@@ -23,8 +23,8 @@ export class VentaQueryDto {
   usuarioId?: number;
 
   @IsOptional()
-  @IsEnum(TipoVenta)
-  tipoVenta?: TipoVenta;
+  @IsEnum(TipoPago)
+  metodoPago?: TipoPago;
 
   @IsOptional()
   @IsEnum(Estado)
