@@ -18,6 +18,7 @@ import { Role } from '../../generated/prisma/enums.js';
 export class CategoriaController {
   constructor(private readonly categoriaService: CategoriaService) {}
 
+  @Roles(Role.ADMIN)
   @Post()
   create(@Body() createCategoriaDto: CreateCategoriaDto) {
     return this.categoriaService.create(createCategoriaDto);

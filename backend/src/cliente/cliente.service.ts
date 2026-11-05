@@ -1,4 +1,9 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { Prisma } from '../../generated/prisma/client.js';
 import { CreateClienteDto } from './dto/create-cliente.dto.js';
@@ -73,6 +78,12 @@ export class ClienteService {
   }
 
   async updateOne(id: number, updateClienteDto: UpdateClienteDto) {
+    if (Object.keys(updateClienteDto).length === 0) {
+      throw new BadRequestException(
+        'Proporciona al menos un campo para actualizar',
+      );
+    }
+
     await this.findOne(id);
     return this.prisma.cliente.update({
       where: { id },
@@ -81,7 +92,12 @@ export class ClienteService {
   }
 
   async desactivateOne(id: number) {
-    await this.findOne(id);
+    const cliente = await this.findOne(id);
+
+    if (!cliente.activo) {
+      throw new ConflictException('El cliente ya se encuentra inactivo');
+    }
+
     return this.prisma.cliente.update({
       where: { id },
       data: {
@@ -91,7 +107,12 @@ export class ClienteService {
   }
 
   async activateOne(id: number) {
-    await this.findOne(id);
+    const cliente = await this.findOne(id);
+
+    if (cliente.activo) {
+      throw new ConflictException('El cliente ya se encuentra activo');
+    }
+
     return this.prisma.cliente.update({
       where: { id },
       data: {

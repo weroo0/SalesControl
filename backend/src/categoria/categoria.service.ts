@@ -13,7 +13,10 @@ export class CategoriaService {
   constructor(private readonly prisma: PrismaService) {}
 
   private normalizarNombre(nombre: string): string {
-    const limpio = nombre.trim().toLocaleLowerCase('es-MX');
+    const limpio = nombre
+      .trim()
+      .replace(/\s+/g, ' ')
+      .toLocaleLowerCase('es-MX');
 
     return limpio.charAt(0).toLocaleUpperCase('es-MX') + limpio.slice(1);
   }
@@ -95,7 +98,10 @@ export class CategoriaService {
   }
 
   async desactivateOne(id: number) {
-    await this.findOne(id);
+    const categoria = await this.findOne(id);
+    if (!categoria.activo) {
+      throw new ConflictException('La categoria ya se encuentra inactiva');
+    }
     return this.prisma.categoria.update({
       where: { id },
       data: {
@@ -105,7 +111,10 @@ export class CategoriaService {
   }
 
   async activateOne(id: number) {
-    await this.findOne(id);
+    const categoria = await this.findOne(id);
+    if (categoria.activo) {
+      throw new ConflictException('La categoria ya se encuentra activa');
+    }
     return this.prisma.categoria.update({
       where: { id },
       data: {

@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
@@ -108,6 +109,12 @@ export class ProductoService {
   }
 
   async updateOne(id: number, updateProductoDto: UpdateProductoDto) {
+    if (Object.keys(updateProductoDto).length === 0) {
+      throw new BadRequestException(
+        'Proporciona al menos un campo para actualizar',
+      );
+    }
+
     await this.findOne(id);
 
     if (updateProductoDto.categoriaId !== undefined) {
@@ -126,7 +133,10 @@ export class ProductoService {
   }
 
   async desactivateOne(id: number) {
-    await this.findOne(id);
+    const producto = await this.findOne(id);
+    if (!producto.activo) {
+      throw new ConflictException('El producto ya está inactivo');
+    }
     return this.prisma.producto.update({
       where: { id },
       data: {
@@ -136,7 +146,10 @@ export class ProductoService {
   }
 
   async activateOne(id: number) {
-    await this.findOne(id);
+    const producto = await this.findOne(id);
+    if (producto.activo) {
+      throw new ConflictException('El producto ya está activo');
+    }
     return this.prisma.producto.update({
       where: { id },
       data: {
