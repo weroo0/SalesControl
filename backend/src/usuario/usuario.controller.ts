@@ -6,12 +6,14 @@ import {
   Post,
   Param,
   Patch,
+  Req,
 } from '@nestjs/common';
 import { UsuarioService } from './usuario.service.js';
 import { CreateUsuarioDto } from './dto/create-usuario.dto.js';
 import { UpdateUsuarioDto } from './dto/update-usuario.dto.js';
 import { Roles } from '../auth/decorators/roles.decorator.js';
 import { Role } from '../../generated/prisma/enums.js';
+import type { RequestWithUser } from '../auth/types/auth.types.js';
 
 @Roles(Role.ADMIN)
 @Controller('usuarios')
@@ -42,8 +44,11 @@ export class UsuarioController {
   }
 
   @Patch(':id/desactivar')
-  desactivateOne(@Param('id', ParseIntPipe) id: number) {
-    return this.usuarioService.desactivateOne(id);
+  desactivateOne(
+    @Param('id', ParseIntPipe) id: number,
+    @Req() request: RequestWithUser,
+  ) {
+    return this.usuarioService.desactivateOne(id, request.user.sub);
   }
 
   @Patch(':id/activar')

@@ -13,8 +13,11 @@ import { PagoQueryDto } from './dto/pago-query.dto.js';
 export class PagoService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async calcularSaldoCliente(clienteId: number) {
-    const ventas = await this.prisma.venta.aggregate({
+  async calcularSaldoCliente(
+    clienteId: number,
+    db: Prisma.TransactionClient = this.prisma,
+  ) {
+    const ventas = await db.venta.aggregate({
       _sum: {
         total: true,
       },
@@ -25,7 +28,7 @@ export class PagoService {
       },
     });
 
-    const pagos = await this.prisma.pago.aggregate({
+    const pagos = await db.pago.aggregate({
       _sum: {
         monto: true,
       },
@@ -41,46 +44,103 @@ export class PagoService {
 
     return totalVentas.sub(totalPagos);
   }
+  private esConflictoSerializacion(error: unknown): boolean {
+    let actual: unknown = error;
+
+    for (let nivel = 0; nivel < 6; nivel++) {
+      if (typeof actual !== 'object' || actual === null) {
+        return false;
+      }
+
+      if ('code' in actual && actual.code === 'P2034') {
+        return true;
+      }
+
+      if ('originalCode' in actual && actual.originalCode === '40001') {
+        return true;
+      }
+
+      if ('kind' in actual && actual.kind === 'TransactionWriteConflict') {
+        return true;
+      }
+
+      if (!('cause' in actual)) {
+        return false;
+      }
+
+      actual = actual.cause;
+    }
+
+    return false;
+  }
 
   async create(createPagoDto: CreatePagoDto, usuarioId: number) {
-    const cliente = await this.prisma.cliente.findUnique({
-      where: {
-        id: createPagoDto.clienteId,
-      },
-    });
+    const maxIntentos = 3;
 
-    if (!cliente) {
-      throw new NotFoundException('Cliente no encontrado');
+    for (let intento = 1; intento <= maxIntentos; intento++) {
+      try {
+        return await this.prisma.$transaction(
+          async (tx) => {
+            const cliente = await tx.cliente.findUnique({
+              where: {
+                id: createPagoDto.clienteId,
+              },
+            });
+
+            if (!cliente) {
+              throw new NotFoundException('Cliente no encontrado');
+            }
+
+            const saldoPendiente = await this.calcularSaldoCliente(
+              createPagoDto.clienteId,
+              tx,
+            );
+
+            if (saldoPendiente.lessThanOrEqualTo(0)) {
+              throw new ConflictException(
+                'El cliente no tiene saldo pendiente',
+              );
+            }
+
+            const montoPago = new Prisma.Decimal(createPagoDto.monto);
+
+            if (montoPago.greaterThan(saldoPendiente)) {
+              throw new BadRequestException(
+                'El pago no puede ser mayor al saldo pendiente',
+              );
+            }
+
+            return tx.pago.create({
+              data: {
+                clienteId: createPagoDto.clienteId,
+                usuarioId,
+                monto: montoPago,
+                metodoPago: createPagoDto.metodoPago,
+                notas: createPagoDto.notas,
+                estado: Estado.ACTIVA,
+              },
+            });
+          },
+          {
+            isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+          },
+        );
+      } catch (error: unknown) {
+        if (!this.esConflictoSerializacion(error)) {
+          throw error;
+        }
+
+        console.log(
+          `Conflicto de serialización. Reintento ${intento}/${maxIntentos}`,
+        );
+
+        if (intento === maxIntentos) {
+          throw new ConflictException(
+            'El pago no pudo procesarse por operaciones simultaneas. Intentar de nuevo.',
+          );
+        }
+      }
     }
-
-    const saldoPendiente = await this.calcularSaldoCliente(
-      createPagoDto.clienteId,
-    );
-
-    if (saldoPendiente.lessThanOrEqualTo(0)) {
-      throw new ConflictException('El cliente no tiene saldo pendiente');
-    }
-
-    const montoPago = new Prisma.Decimal(createPagoDto.monto);
-
-    if (montoPago.greaterThan(saldoPendiente)) {
-      throw new BadRequestException(
-        'El pago no puede ser mayor al saldo pendiente',
-      );
-    }
-
-    console.log(saldoPendiente);
-
-    return this.prisma.pago.create({
-      data: {
-        clienteId: createPagoDto.clienteId,
-        usuarioId,
-        monto: montoPago,
-        metodoPago: createPagoDto.metodoPago,
-        notas: createPagoDto.notas,
-        estado: Estado.ACTIVA,
-      },
-    });
   }
 
   async findAll(query: PagoQueryDto) {
