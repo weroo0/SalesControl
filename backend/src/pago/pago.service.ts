@@ -8,6 +8,7 @@ import { Estado, Prisma, TipoVenta } from '../../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { CreatePagoDto } from './dto/create-pago.dto.js';
 import { PagoQueryDto } from './dto/pago-query.dto.js';
+import { DateTime } from 'luxon';
 
 @Injectable()
 export class PagoService {
@@ -180,14 +181,20 @@ export class PagoService {
     const fechaFilter: Prisma.DateTimeFilter = {};
 
     if (query.fechaDesde) {
-      fechaFilter.gte = new Date(`${query.fechaDesde}T00:00:00`);
+      fechaFilter.gte = DateTime.fromISO(query.fechaDesde, {
+        zone: 'America/Mexico_City',
+      })
+        .startOf('day')
+        .toJSDate();
     }
 
     if (query.fechaHasta) {
-      const fechaHasta = new Date(`${query.fechaHasta}T00:00:00`);
-      fechaHasta.setDate(fechaHasta.getDate() + 1);
-
-      fechaFilter.lt = fechaHasta;
+      fechaFilter.lt = DateTime.fromISO(query.fechaHasta, {
+        zone: 'America/Mexico_City',
+      })
+        .startOf('day')
+        .plus({ days: 1 })
+        .toJSDate();
     }
 
     if (query.fechaDesde || query.fechaHasta) {

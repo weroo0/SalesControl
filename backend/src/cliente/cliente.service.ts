@@ -10,6 +10,7 @@ import { CreateClienteDto } from './dto/create-cliente.dto.js';
 import { UpdateClienteDto } from './dto/update-cliente.dto.js';
 import { Estado, TipoVenta } from '../../generated/prisma/client.js';
 import { ClienteQueryDto } from './dto/cliente-query.dto.js';
+import { DateTime } from 'luxon';
 
 @Injectable()
 export class ClienteService {
@@ -274,6 +275,7 @@ export class ClienteService {
           estado: Estado.ACTIVA,
           fechaPago: {
             gte: inicio,
+            lt: fin,
             lte: ahora,
           },
         },
@@ -380,21 +382,22 @@ export class ClienteService {
     };
   }
 
-  private obtenerCicloCobranza(fecha = new Date()) {
-    const inicio = new Date(fecha);
+  private obtenerCicloCobranza(fecha: Date = new Date()) {
+    const fechaLocal = DateTime.fromJSDate(fecha, {
+      zone: 'America/Mexico_City',
+    });
 
-    inicio.setHours(0, 0, 0, 0);
+    const diasDesdeSabado = (fechaLocal.weekday + 1) % 7;
 
-    const diasDesdeSabado = (inicio.getDay() + 1) % 7;
+    const inicioLocal = fechaLocal
+      .startOf('day')
+      .minus({ days: diasDesdeSabado });
 
-    inicio.setDate(inicio.getDate() - diasDesdeSabado);
-
-    const fin = new Date(inicio);
-    fin.setDate(fin.getDate() + 7);
+    const finLocal = inicioLocal.plus({ days: 7 });
 
     return {
-      inicio,
-      fin,
+      inicio: inicioLocal.toJSDate(),
+      fin: finLocal.toJSDate(),
     };
   }
 }

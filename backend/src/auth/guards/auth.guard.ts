@@ -3,6 +3,7 @@ import {
   ExecutionContext,
   ForbiddenException,
   Injectable,
+  NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
@@ -54,11 +55,21 @@ export class AuthGuard implements CanActivate {
       throw new UnauthorizedException('Token inválido o expirado');
     }
 
-    if (!payload.sub) {
-      throw new UnauthorizedException('Token invalido');
+    if (!payload || !Number.isSafeInteger(payload.sub) || payload.sub <= 0) {
+      throw new UnauthorizedException('Token inválido');
     }
 
-    const usuario = await this.usuarioService.findOne(payload.sub);
+    const usuario = await this.usuarioService
+      .findOne(payload.sub)
+      .catch((error: unknown) => {
+        if (error instanceof NotFoundException) {
+          throw new UnauthorizedException(
+            'Token inválido o usuario inexistente',
+          );
+        }
+
+        throw error;
+      });
 
     if (!usuario.activo) {
       throw new ForbiddenException('Usuario desactivado');

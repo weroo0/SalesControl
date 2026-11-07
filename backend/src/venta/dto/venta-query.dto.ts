@@ -4,6 +4,7 @@ import {
   IsEnum,
   IsInt,
   IsOptional,
+  Matches,
   Max,
   Min,
 } from 'class-validator';
@@ -32,10 +33,12 @@ export class VentaQueryDto {
 
   @IsOptional()
   @IsDateString()
+  @Matches(/^\d{4}-\d{2}-\d{2}$/)
   fechaDesde?: string;
 
   @IsOptional()
   @IsDateString()
+  @Matches(/^\d{4}-\d{2}-\d{2}$/)
   fechaHasta?: string;
 
   @IsOptional()

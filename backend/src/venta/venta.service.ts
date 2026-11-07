@@ -8,6 +8,7 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import { CreateVentaDto } from './dto/create-venta.dto.js';
 import { Estado, Prisma } from '../../generated/prisma/client.js';
 import { VentaQueryDto } from './dto/venta-query.dto.js';
+import { DateTime } from 'luxon';
 
 @Injectable()
 export class VentaService {
@@ -152,21 +153,27 @@ export class VentaService {
     const fechaFilter: Prisma.DateTimeFilter = {};
 
     if (query.fechaDesde) {
-      fechaFilter.gte = new Date(`${query.fechaDesde}T00:00:00`);
+      fechaFilter.gte = DateTime.fromISO(query.fechaDesde, {
+        zone: 'America/Mexico_City',
+      })
+        .startOf('day')
+        .toJSDate();
     }
 
     if (query.fechaHasta) {
-      const fechaHasta = new Date(`${query.fechaHasta}T00:00:00`);
-      fechaHasta.setDate(fechaHasta.getDate() + 1);
-
-      fechaFilter.lt = fechaHasta;
+      fechaFilter.lt = DateTime.fromISO(query.fechaHasta, {
+        zone: 'America/Mexico_City',
+      })
+        .startOf('day')
+        .plus({ days: 1 })
+        .toJSDate();
     }
 
     if (query.fechaDesde || query.fechaHasta) {
       where.fecha = fechaFilter;
     }
 
-    const [ventas, total] = await this.prisma.$transaction([
+    const [ventas, total] = await Promise.all([
       this.prisma.venta.findMany({
         where,
         skip,
