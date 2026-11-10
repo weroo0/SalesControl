@@ -6,8 +6,14 @@ import {
   Matches,
   MinLength,
 } from 'class-validator';
+import { ApiProperty } from '@nestjs/swagger';
 
 export class CreateUsuarioDto {
+  @ApiProperty({
+    example: 'Luis Enrique',
+    description: 'Nombre completo del usuario',
+    minLength: 1,
+  })
   @Transform(({ value }) => {
     const rawValue: unknown = value;
 
@@ -17,6 +23,11 @@ export class CreateUsuarioDto {
   @IsNotEmpty()
   nombre!: string;
 
+  @ApiProperty({
+    example: 'luis@gmail.com',
+    description: 'Correo electrónico único del usuario',
+    format: 'email',
+  })
   @Transform(({ value }) => {
     const rawValue: unknown = value;
 
@@ -29,6 +40,13 @@ export class CreateUsuarioDto {
   @IsEmail()
   email!: string;
 
+  @ApiProperty({
+    example: 'ClaveSegura123!',
+    description: 'Contraseña de acceso del usuario',
+    minLength: 8,
+    format: 'password',
+    writeOnly: true,
+  })
   @IsString()
   @IsNotEmpty()
   @MinLength(8)
