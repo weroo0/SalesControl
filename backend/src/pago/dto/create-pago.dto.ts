@@ -1,5 +1,6 @@
 import {
   IsEnum,
+  IsInt,
   IsNumber,
   IsOptional,
   IsPositive,
@@ -43,7 +44,7 @@ export class CreatePagoDto {
     minimum: 1,
     description: 'Identificador del cliente que realiza el pago',
   })
-  @IsNumber()
+  @IsInt()
   @IsPositive()
   clienteId!: number;
 }
