@@ -72,3 +72,8 @@ export async function apiRequest<T>(
 
   return body as T;
 }
+
+export type AuthenticatedRequest = <T> (
+    path: string,
+    options?: RequestInit,
+) => Promise<T>;

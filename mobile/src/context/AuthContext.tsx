@@ -3,6 +3,7 @@ import {
     useContext,
     useEffect,
     useState,
+    useCallback,
     type ReactNode,
 } from "react";
 
@@ -26,7 +27,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // 4. Recuperar la sesión al iniciar la aplicación.
     useEffect(() => {
-        
+
         let active = true;
         async function restaurarSesion() {
             try {
@@ -59,10 +60,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     // 6. Cerrar sesión.
-    async function signOut() {
-        await authService.logout();
-        setToken(null);
-    }
+    const signOut = useCallback(async () => {
+        try {
+            await authService.logout();
+        } finally {
+            setToken(null)
+        }
+    }, []);
 
     return (
         <AuthContext.Provider

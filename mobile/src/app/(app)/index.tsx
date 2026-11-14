@@ -7,6 +7,7 @@ import {
 
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../context/AuthContext';
+import { Link } from 'expo-router';
 
 export default function HomeScreen() {
   const { signOut } = useAuth();
@@ -25,6 +26,12 @@ export default function HomeScreen() {
         <Text style={styles.description}>
           Esta pantalla está protegida mediante Expo Router.
         </Text>
+
+        <Link href="/clientes" asChild>
+          <Pressable style={styles.button}>
+            <Text style={styles.buttonText}>Ver clientes</Text>
+          </Pressable>
+        </Link>
 
         <Pressable
           style={styles.button}
