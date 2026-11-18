@@ -10,3 +10,8 @@ export interface CrearClienteInput {
     nombre: string;
     telefono?: string;
 }
+
+export interface ActualizarClienteInput {
+    nombre?: string;
+    telefono?: string | null;
+}

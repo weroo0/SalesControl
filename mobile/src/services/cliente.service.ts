@@ -1,5 +1,5 @@
 import type { AuthenticatedRequest } from "./api";
-import type { Cliente, CrearClienteInput } from "@/types/cliente.types";
+import type { Cliente, CrearClienteInput, ActualizarClienteInput } from "@/types/cliente.types";
 
 export const clienteService = {
     async listar(request: AuthenticatedRequest): Promise<Cliente[]> {
@@ -31,4 +31,23 @@ export const clienteService = {
             body: JSON.stringify(datos),
         });
     },
+
+    async actualizar(request: AuthenticatedRequest, id: number, datos: ActualizarClienteInput): Promise<Cliente> {
+        return request<Cliente>(`/clientes/${id}`, {
+            method: 'PATCH',
+            body: JSON.stringify(datos),
+        });
+    },
+
+    async activar(request: AuthenticatedRequest, id: number): Promise<void> {
+        await request<void>(`/clientes/${id}/activar`, {
+            method: 'PATCH',
+        });
+    },
+
+    async desactivar(request: AuthenticatedRequest, id: number): Promise<void> {
+        await request<void>(`/clientes/${id}/desactivar`, {
+            method: 'PATCH',
+        });
+    },    
 };

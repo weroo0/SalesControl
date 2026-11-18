@@ -1,8 +1,8 @@
-import { useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter, useFocusEffect } from "expo-router";
 
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View, Alert } from "react-native";
 
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -21,16 +21,21 @@ export default function ClienteDetalleScreen() {
     const [cliente, setCliente] = useState<Cliente | null>(null)
     const [cargando, setCargando] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const [recarga, setRecarga] = useState(0)
+    const [recarga, setRecarga] = useState(0);
 
-    useEffect(() => {
-        let vigente = true;
+    const [cambiandoEstado, setCambiandoEstado] = useState(false);
+    const [errorEstado, setErrorEstado] = useState<string | null>(null);
 
-        async function cargarCliente() {
+
+    useFocusEffect(
+        useCallback(() => {
+            let vigente = true;
+
+            async function cargarCliente() {
             const clienteId = Number(id);
 
-            if(!Number.isSafeInteger(clienteId) || clienteId <= 0) {
-                setError('El id del cliente no es válido');
+            if (!Number.isSafeInteger(clienteId) || clienteId <= 0) {
+                setError('Identificador de cliente inválido.');
                 setCargando(false);
                 return;
             }
@@ -40,44 +45,126 @@ export default function ClienteDetalleScreen() {
             setCliente(null);
 
             try {
-                const resultado = await clienteService.obtenerPorId(request, clienteId);
+                const resultado = await clienteService.obtenerPorId(
+                request,
+                clienteId,
+                );
 
-                if(vigente) {
-                    setCliente(resultado);
+                if (vigente) {
+                setCliente(resultado);
                 }
             } catch (err) {
-                if(!vigente) return;
+                if (!vigente) return;
 
-                if(err instanceof ApiError) {
-                    if(err.status === 401) {
-                        return;
-                    }
+                if (err instanceof ApiError && err.status === 401) {
+                return;
+                }
 
-                    if(err.status === 404) {
-                        setError('El cliente solicitado no existe');
-                    } else if (err.status === 403) {
-                        setError('No tienes permiso para consultar este cliente');
-                    } else {
-                        setError(err.message);
-                    }
+                if (err instanceof ApiError && err.status === 404) {
+                setError('El cliente no existe.');
                 } else {
-                    setError(err instanceof Error ? err.message : 'No se pudo cargar el cliente');
+                setError(
+                    err instanceof Error
+                    ? err.message
+                    : 'No fue posible cargar el cliente.',
+                );
                 }
             } finally {
                 if (vigente) {
-                    setCargando(false);
+                setCargando(false);
                 }
             }
-        }
+            }
 
-        void cargarCliente();
+            void cargarCliente();
 
-        return () => {
+            return () => {
             vigente = false;
-        };
-    }, [id, request, recarga]);
+            };
+        }, [id, request, recarga]),
+    );
+
+    async function actualizarEstado(
+        clienteId: number,
+        nuevoEstado: boolean,
+    ) {
+        if (cambiandoEstado) return;
+
+        setCambiandoEstado(true);
+        setErrorEstado(null);
+
+        try {
+            if (nuevoEstado) {
+                await clienteService.activar(request, clienteId);
+            } else {
+                await clienteService.desactivar(request, clienteId);
+            }
+
+            setRecarga((actual) => actual + 1);
+        } catch (err) {
+            if(err instanceof ApiError) {
+                if(err.status === 401) {
+                    return;
+                }
+
+                if (err.status === 403) {
+                    setError('No tienes permiso para cambiar el estado del cliente');
+                } else if (err.status === 404) {
+                    setErrorEstado('El cliente no existe');
+                } else if (err.status === 409) {
+                    setErrorEstado(err.message);
+                } else {
+                    setErrorEstado(err.message);
+                }
+            } else {
+                setErrorEstado(
+                    err instanceof Error
+                        ? err.message
+                        : 'No fue posible actualizar el estado',
+                );
+            }
+        } finally {
+            setCambiandoEstado(false);
+        }
+    }
 
 
+    function confirmarCambioEstado() {
+        if (!cliente || cambiandoEstado) return;
+
+        const nuevoEstado = !cliente.activo;
+
+        const titulo = nuevoEstado
+            ? 'Activar cliente'
+            : 'Desactivar cliente';
+
+        const mensaje = nuevoEstado
+            ? `¿Deseas activar nuevamente a ${cliente.nombre}?`
+            : `¿Deseas desactivar a ${cliente.nombre}? Sus ventas, pagos y adeudos existentes se conservarán.`;
+
+        const clienteId = cliente.id;
+
+        Alert.alert(
+            titulo,
+            mensaje,
+            [
+            {
+                text: 'Cancelar',
+                style: 'cancel',
+            },
+            {
+                text: 'Confirmar',
+                style: nuevoEstado ? 'default' : 'destructive',
+                onPress: () => {
+                void actualizarEstado(clienteId, nuevoEstado);
+                },
+            },
+            ],
+            {
+            cancelable: true,
+            },
+        );
+    }
 
     return (
         <SafeAreaView style={styles.container}>
@@ -126,6 +213,49 @@ export default function ClienteDetalleScreen() {
                         <Text style={styles.label}>Notas</Text>
                         <Text style={styles.value}>{cliente.notas || 'No hay notas xd'}</Text>                        
                     </View>
+
+                    <Pressable
+                        style={styles.button}
+                        onPress={() =>
+                            router.push({
+                            pathname: '/clientes/[id]/editar',
+                            params: {
+                                id: String(cliente.id),
+                            },
+                            })
+                        }
+                    >
+                        <Text style={styles.buttonText}>
+                            Editar cliente
+                        </Text>
+                    </Pressable>
+
+                    {errorEstado ? (
+                        <Text style={styles.estadoError}>
+                            {errorEstado}
+                        </Text>
+                    ) : null}
+
+                    <Pressable style={[
+                        styles.estadoButton,
+                        cliente.activo
+                            ? styles.desactivarButton
+                            : styles.activarButton,
+                        cambiandoEstado && styles.estadoButtonDisabled,
+                    ]}
+                    onPress={confirmarCambioEstado}
+                    disabled={cambiandoEstado}
+                    >
+                        {cambiandoEstado ? (
+                            <ActivityIndicator color="#FFFFFF" />
+                        ): (
+                            <Text style={styles.buttonText}>
+                                {cliente.activo
+                                    ? 'Desactivar cliente'
+                                    : 'Activar cliente'}
+                            </Text>
+                        )}
+                    </Pressable>
 
                     <Pressable style={styles.button} onPress={() => setRecarga((valor) => valor + 1)}>
                         <Text style={styles.buttonText}>Actualizar información</Text>
@@ -223,6 +353,30 @@ const styles = StyleSheet.create({
   error: {
     color: '#DC2626',
     fontSize: 15,
+    textAlign: 'center',
+  },
+  estadoButton: {
+    padding: 16,
+    borderRadius: 10,
+    alignItems: 'center',
+    marginTop: 12,
+  },
+
+  activarButton: {
+    backgroundColor: '#16845D',
+  },
+
+  desactivarButton: {
+    backgroundColor: '#DC2626',
+  },
+
+  estadoButtonDisabled: {
+    opacity: 0.6,
+  },
+
+  estadoError: {
+    color: '#DC2626',
+    fontSize: 14,
     textAlign: 'center',
   },
 });
