@@ -33,6 +33,12 @@ export default function HomeScreen() {
           </Pressable>
         </Link>
 
+        <Link href="/categorias" asChild>
+          <Pressable style={styles.button}>
+            <Text style={styles.buttonText}>Ver categorias</Text>
+          </Pressable>
+        </Link>        
+
         <Pressable
           style={styles.button}
           onPress={() => {

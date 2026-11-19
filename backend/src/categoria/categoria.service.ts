@@ -44,11 +44,12 @@ export class CategoriaService {
     });
   }
 
-  async findAll() {
+  async findAll(activo: boolean = true) {
     return this.prisma.categoria.findMany({
       where: {
-        activo: true,
+        activo,
       },
+      orderBy: { nombre: 'asc' },
     });
   }
 

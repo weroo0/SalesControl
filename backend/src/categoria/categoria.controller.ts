@@ -6,6 +6,9 @@ import {
   ParseIntPipe,
   Patch,
   Post,
+  DefaultValuePipe,
+  Query,
+  ParseBoolPipe,
 } from '@nestjs/common';
 import { CategoriaService } from './categoria.service.js';
 import { CreateCategoriaDto } from './dto/create-categoria.dto.js';
@@ -68,8 +71,11 @@ export class CategoriaController {
     description: 'Listado de categorias obtenido correctamente',
     type: [CategoriaResponseDto],
   })
-  findAll() {
-    return this.categoriaService.findAll();
+  findAll(
+    @Query('activo', new DefaultValuePipe(true), ParseBoolPipe)
+    activo: boolean,
+  ) {
+    return this.categoriaService.findAll(activo);
   }
 
   @Get(':id')
