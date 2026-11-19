@@ -13,7 +13,7 @@ import { ApiError } from "@/services/api";
 import type { Cliente } from "@/types/cliente.types";
 
 export default function ClienteDetalleScreen() {
-    const {id} = useLocalSearchParams<{id: string}>();
+    const { id } = useLocalSearchParams<{ id: string }>();
 
     const router = useRouter();
     const request = useAuthenticatedRequest();
@@ -32,54 +32,54 @@ export default function ClienteDetalleScreen() {
             let vigente = true;
 
             async function cargarCliente() {
-            const clienteId = Number(id);
+                const clienteId = Number(id);
 
-            if (!Number.isSafeInteger(clienteId) || clienteId <= 0) {
-                setError('Identificador de cliente inválido.');
-                setCargando(false);
-                return;
-            }
-
-            setCargando(true);
-            setError(null);
-            setCliente(null);
-
-            try {
-                const resultado = await clienteService.obtenerPorId(
-                request,
-                clienteId,
-                );
-
-                if (vigente) {
-                setCliente(resultado);
-                }
-            } catch (err) {
-                if (!vigente) return;
-
-                if (err instanceof ApiError && err.status === 401) {
-                return;
+                if (!Number.isSafeInteger(clienteId) || clienteId <= 0) {
+                    setError('Identificador de cliente inválido.');
+                    setCargando(false);
+                    return;
                 }
 
-                if (err instanceof ApiError && err.status === 404) {
-                setError('El cliente no existe.');
-                } else {
-                setError(
-                    err instanceof Error
-                    ? err.message
-                    : 'No fue posible cargar el cliente.',
-                );
+                setCargando(true);
+                setError(null);
+                setCliente(null);
+
+                try {
+                    const resultado = await clienteService.obtenerPorId(
+                        request,
+                        clienteId,
+                    );
+
+                    if (vigente) {
+                        setCliente(resultado);
+                    }
+                } catch (err) {
+                    if (!vigente) return;
+
+                    if (err instanceof ApiError && err.status === 401) {
+                        return;
+                    }
+
+                    if (err instanceof ApiError && err.status === 404) {
+                        setError('El cliente no existe.');
+                    } else {
+                        setError(
+                            err instanceof Error
+                                ? err.message
+                                : 'No fue posible cargar el cliente.',
+                        );
+                    }
+                } finally {
+                    if (vigente) {
+                        setCargando(false);
+                    }
                 }
-            } finally {
-                if (vigente) {
-                setCargando(false);
-                }
-            }
             }
 
             void cargarCliente();
 
             return () => {
-            vigente = false;
+                vigente = false;
             };
         }, [id, request, recarga]),
     );
@@ -102,8 +102,8 @@ export default function ClienteDetalleScreen() {
 
             setRecarga((actual) => actual + 1);
         } catch (err) {
-            if(err instanceof ApiError) {
-                if(err.status === 401) {
+            if (err instanceof ApiError) {
+                if (err.status === 401) {
                     return;
                 }
 
@@ -148,20 +148,20 @@ export default function ClienteDetalleScreen() {
             titulo,
             mensaje,
             [
-            {
-                text: 'Cancelar',
-                style: 'cancel',
-            },
-            {
-                text: 'Confirmar',
-                style: nuevoEstado ? 'default' : 'destructive',
-                onPress: () => {
-                void actualizarEstado(clienteId, nuevoEstado);
+                {
+                    text: 'Cancelar',
+                    style: 'cancel',
                 },
-            },
+                {
+                    text: 'Confirmar',
+                    style: nuevoEstado ? 'default' : 'destructive',
+                    onPress: () => {
+                        void actualizarEstado(clienteId, nuevoEstado);
+                    },
+                },
             ],
             {
-            cancelable: true,
+                cancelable: true,
             },
         );
     }
@@ -178,7 +178,7 @@ export default function ClienteDetalleScreen() {
 
             {cargando ? (
                 <View style={styles.center}>
-                    <ActivityIndicator size="large" color="#2563EB"/>
+                    <ActivityIndicator size="large" color="#2563EB" />
                     <Text style={styles.subtitle}>Cargando información...</Text>
                 </View>
             ) : error ? (
@@ -190,43 +190,59 @@ export default function ClienteDetalleScreen() {
                     </Pressable>
                 </View>
             ) : cliente ? (
-                <ScrollView contentContainerStyle= {styles.content}>
+                <ScrollView contentContainerStyle={styles.content}>
                     <View style={styles.card}>
                         <Text style={styles.label}>Nombre completo</Text>
                         <Text style={styles.name}>{cliente.nombre}</Text>
 
-                        <View style={styles.divider}/>
+                        <View style={styles.divider} />
 
                         <Text style={styles.label}>Identificador</Text>
                         <Text style={styles.value}>#{cliente.id}</Text>
 
-                        <View style={styles.divider}/>
+                        <View style={styles.divider} />
 
                         <Text style={styles.label}>Teléfono</Text>
                         <Text style={styles.value}>{cliente.telefono || 'Sin teléfono registrado xd'}</Text>
 
-                        <View style={styles.divider}/>
+                        <View style={styles.divider} />
 
                         <Text style={styles.label}>Estado</Text>
                         <Text style={cliente.activo ? styles.active : styles.inactive}>{cliente.activo ? 'Activo' : 'Inactivo'}</Text>
 
                         <Text style={styles.label}>Notas</Text>
-                        <Text style={styles.value}>{cliente.notas || 'No hay notas xd'}</Text>                        
+                        <Text style={styles.value}>{cliente.notas || 'No hay notas xd'}</Text>
                     </View>
 
                     <Pressable
                         style={styles.button}
                         onPress={() =>
                             router.push({
-                            pathname: '/clientes/[id]/editar',
-                            params: {
-                                id: String(cliente.id),
-                            },
+                                pathname: '/clientes/[id]/editar',
+                                params: {
+                                    id: String(cliente.id),
+                                },
                             })
                         }
                     >
                         <Text style={styles.buttonText}>
                             Editar cliente
+                        </Text>
+                    </Pressable>
+
+                    <Pressable
+                        style={styles.button}
+                        onPress={() =>
+                            router.push({
+                                pathname: '/clientes/[id]/estado-cuenta',
+                                params: {
+                                    id: String(cliente.id),
+                                },
+                            })
+                        }
+                    >
+                        <Text style={styles.buttonText}>
+                            Ver estado de cuenta
                         </Text>
                     </Pressable>
 
@@ -243,12 +259,12 @@ export default function ClienteDetalleScreen() {
                             : styles.activarButton,
                         cambiandoEstado && styles.estadoButtonDisabled,
                     ]}
-                    onPress={confirmarCambioEstado}
-                    disabled={cambiandoEstado}
+                        onPress={confirmarCambioEstado}
+                        disabled={cambiandoEstado}
                     >
                         {cambiandoEstado ? (
                             <ActivityIndicator color="#FFFFFF" />
-                        ): (
+                        ) : (
                             <Text style={styles.buttonText}>
                                 {cliente.activo
                                     ? 'Desactivar cliente'
@@ -271,112 +287,112 @@ export default function ClienteDetalleScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F5F7FA',
-  },
-  header: {
-    padding: 20,
-    gap: 14,
-  },
-  back: {
-    fontSize: 16,
-    color: '#2563EB',
-    fontWeight: '600',
-  },
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#162033',
-  },
-  content: {
-    padding: 20,
-    gap: 20,
-  },
-  card: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
-    padding: 20,
-    gap: 10,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-  },
-  label: {
-    fontSize: 13,
-    color: '#64748B',
-  },
-  name: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: '#162033',
-  },
-  value: {
-    fontSize: 16,
-    color: '#162033',
-  },
-  divider: {
-    height: 1,
-    backgroundColor: '#E2E8F0',
-    marginVertical: 6,
-  },
-  active: {
-    fontSize: 16,
-    color: '#16845D',
-    fontWeight: '600',
-  },
-  inactive: {
-    fontSize: 16,
-    color: '#DC2626',
-    fontWeight: '600',
-  },
-  button: {
-    backgroundColor: '#2563EB',
-    padding: 16,
-    borderRadius: 10,
-    alignItems: 'center',
-  },
-  buttonText: {
-    color: '#FFFFFF',
-    fontWeight: '600',
-  },
-  center: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 24,
-    gap: 16,
-  },
-  subtitle: {
-    fontSize: 14,
-    color: '#64748B',
-  },
-  error: {
-    color: '#DC2626',
-    fontSize: 15,
-    textAlign: 'center',
-  },
-  estadoButton: {
-    padding: 16,
-    borderRadius: 10,
-    alignItems: 'center',
-    marginTop: 12,
-  },
+    container: {
+        flex: 1,
+        backgroundColor: '#F5F7FA',
+    },
+    header: {
+        padding: 20,
+        gap: 14,
+    },
+    back: {
+        fontSize: 16,
+        color: '#2563EB',
+        fontWeight: '600',
+    },
+    headerTitle: {
+        fontSize: 24,
+        fontWeight: '700',
+        color: '#162033',
+    },
+    content: {
+        padding: 20,
+        gap: 20,
+    },
+    card: {
+        backgroundColor: '#FFFFFF',
+        borderRadius: 14,
+        padding: 20,
+        gap: 10,
+        borderWidth: 1,
+        borderColor: '#E2E8F0',
+    },
+    label: {
+        fontSize: 13,
+        color: '#64748B',
+    },
+    name: {
+        fontSize: 22,
+        fontWeight: '700',
+        color: '#162033',
+    },
+    value: {
+        fontSize: 16,
+        color: '#162033',
+    },
+    divider: {
+        height: 1,
+        backgroundColor: '#E2E8F0',
+        marginVertical: 6,
+    },
+    active: {
+        fontSize: 16,
+        color: '#16845D',
+        fontWeight: '600',
+    },
+    inactive: {
+        fontSize: 16,
+        color: '#DC2626',
+        fontWeight: '600',
+    },
+    button: {
+        backgroundColor: '#2563EB',
+        padding: 16,
+        borderRadius: 10,
+        alignItems: 'center',
+    },
+    buttonText: {
+        color: '#FFFFFF',
+        fontWeight: '600',
+    },
+    center: {
+        flex: 1,
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 24,
+        gap: 16,
+    },
+    subtitle: {
+        fontSize: 14,
+        color: '#64748B',
+    },
+    error: {
+        color: '#DC2626',
+        fontSize: 15,
+        textAlign: 'center',
+    },
+    estadoButton: {
+        padding: 16,
+        borderRadius: 10,
+        alignItems: 'center',
+        marginTop: 12,
+    },
 
-  activarButton: {
-    backgroundColor: '#16845D',
-  },
+    activarButton: {
+        backgroundColor: '#16845D',
+    },
 
-  desactivarButton: {
-    backgroundColor: '#DC2626',
-  },
+    desactivarButton: {
+        backgroundColor: '#DC2626',
+    },
 
-  estadoButtonDisabled: {
-    opacity: 0.6,
-  },
+    estadoButtonDisabled: {
+        opacity: 0.6,
+    },
 
-  estadoError: {
-    color: '#DC2626',
-    fontSize: 14,
-    textAlign: 'center',
-  },
+    estadoError: {
+        color: '#DC2626',
+        fontSize: 14,
+        textAlign: 'center',
+    },
 });

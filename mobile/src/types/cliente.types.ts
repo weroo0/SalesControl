@@ -15,3 +15,18 @@ export interface ActualizarClienteInput {
     nombre?: string;
     telefono?: string | null;
 }
+
+export interface FiltrosClientes {
+    activo: boolean;
+    nombre?: string;
+    page: number;
+    limit: number;
+}
+
+export interface PaginaClientes {
+    data: Cliente[];
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+}

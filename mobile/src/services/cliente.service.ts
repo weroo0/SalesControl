@@ -1,5 +1,7 @@
 import type { AuthenticatedRequest } from "./api";
-import type { Cliente, CrearClienteInput, ActualizarClienteInput } from "@/types/cliente.types";
+import type { Cliente, CrearClienteInput, ActualizarClienteInput, FiltrosClientes, PaginaClientes } from "@/types/cliente.types";
+import type { ClientesConDeudaResponse } from "@/types/deuda.types";
+import type { EstadoCuentaResponse } from "@/types/estado-cuenta.types";
 
 export const clienteService = {
     async listar(request: AuthenticatedRequest): Promise<Cliente[]> {
@@ -49,5 +51,35 @@ export const clienteService = {
         await request<void>(`/clientes/${id}/desactivar`, {
             method: 'PATCH',
         });
-    },    
+    }, 
+    
+    async listarPaginado(request: AuthenticatedRequest, filtros: FiltrosClientes): Promise<PaginaClientes> {
+        const parametros = [
+            `activo=${filtros.activo}`,
+            `page=${filtros.page}`,
+            `limit=${filtros.limit}`,
+        ];
+
+        if(filtros.nombre?.trim()) {
+            parametros.push(
+                `nombre=${encodeURIComponent(filtros.nombre.trim())}`,
+            );
+        }
+
+        const query = parametros.join('&');
+
+        return request<PaginaClientes>(`/clientes?${query}`);
+    },
+
+    async listarConDeuda(request: AuthenticatedRequest): Promise<ClientesConDeudaResponse> {
+        return request<ClientesConDeudaResponse> (
+            '/clientes/con-deuda'
+        );
+    },
+
+    async obtenerEstadoCuenta(request: AuthenticatedRequest, id: number): Promise<EstadoCuentaResponse> {
+        return request<EstadoCuentaResponse>(
+            `/clientes/${id}/estado-cuenta`
+        );
+    },
 };
