@@ -37,7 +37,15 @@ export default function HomeScreen() {
           <Pressable style={styles.button}>
             <Text style={styles.buttonText}>Ver categorias</Text>
           </Pressable>
-        </Link>        
+        </Link>
+
+        <Link href="/productos" asChild>
+          <Pressable style={styles.button}>
+            <Text style={styles.buttonText}>
+              Ver productos
+            </Text>
+          </Pressable>
+        </Link>
 
         <Pressable
           style={styles.button}
