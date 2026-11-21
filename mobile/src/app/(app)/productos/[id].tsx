@@ -13,6 +13,7 @@ import {
     StyleSheet,
     Text,
     View,
+    Alert
 } from 'react-native';
 
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -51,6 +52,54 @@ export default function ProductoDetalleScreen() {
     const [cargando, setCargando] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [recarga, setRecarga] = useState(0);
+    const [guardando, setGuardando] = useState(true);
+
+    const cambiarEstado = () => {
+        if (!producto || cargando) return;
+
+        const accion = producto.activo ? 'desactivar' : 'activar';
+
+        Alert.alert(
+            `${accion === 'desactivar' ? 'Desactivar' : 'Activar'} producto`,
+            `¿Estás seguro de que deseas ${accion} este producto?`,
+            [
+                {
+                    text: 'Cancelar',
+                    style: 'cancel',
+                },
+                {
+                    text: 'Confirmar',
+                    onPress: async () => {
+                        try {
+                            setCargando(true);
+
+                            const productoActualizado =
+                                accion === 'desactivar'
+                                    ? await productoService.desactivar(request, producto.id)
+                                    : await productoService.activar(request, producto.id);
+
+                            setProducto(productoActualizado);
+                        } catch (error) {
+                            if (error instanceof ApiError) {
+                                if (error.status === 401) return;
+
+                                Alert.alert(
+                                    'Error',
+                                    error.status === 403
+                                        ? 'No tienes permisos para realizar esta acción.'
+                                        : error.message,
+                                );
+                            } else {
+                                Alert.alert('Error', 'No se pudo actualizar el estado del producto.');
+                            }
+                        } finally {
+                            setCargando(false);
+                        }
+                    },
+                },
+            ],
+        );
+    };
 
     useFocusEffect(
         useCallback(() => {
@@ -220,6 +269,39 @@ export default function ProductoDetalleScreen() {
                                 ? 'Activo'
                                 : 'Inactivo'}
                         </Text>
+
+                        <Pressable
+                            style={styles.editButton}
+                            onPress={() =>
+                                router.push({
+                                    pathname: '/productos/[id]/editar',
+                                    params: {
+                                        id: String(producto.id),
+                                    },
+                                })
+                            }
+                        >
+                            <Text style={styles.editButtonText}>
+                                Editar producto
+                            </Text>
+                        </Pressable>
+
+                        <Pressable
+                            style={[
+                                styles.statusButton,
+                                producto.activo ? styles.desactivateButton : styles.activateButton,
+                            ]}
+                            onPress={cambiarEstado}
+                            disabled={cargando}
+                        >
+                            {cargando ? (
+                                <ActivityIndicator color="#FFFFFF" />
+                            ) : (
+                                <Text style={styles.statusButtonText}>
+                                    {producto.activo ? 'Desactivar producto' : 'Activar producto'}
+                                </Text>
+                            )}
+                        </Pressable>
                     </View>
 
                     <View style={styles.card}>
@@ -353,5 +435,39 @@ const styles = StyleSheet.create({
         fontSize: 14,
         color: '#DC2626',
         textAlign: 'center',
+    },
+    editButton: {
+        backgroundColor: '#2563EB',
+        padding: 14,
+        borderRadius: 10,
+        alignItems: 'center',
+        marginTop: 12,
+    },
+
+    editButtonText: {
+        color: '#FFFFFF',
+        fontSize: 15,
+        fontWeight: '600',
+    },
+
+    statusButton: {
+        padding: 15,
+        borderRadius: 10,
+        alignItems: 'center',
+        marginTop: 12,
+    },
+
+    desactivateButton: {
+        backgroundColor: '#DC2626',
+    },
+
+    activateButton: {
+        backgroundColor: '#16A34A',
+    },
+
+    statusButtonText: {
+        color: '#FFFFFF',
+        fontWeight: '600',
+        fontSize: 15,
     },
 });

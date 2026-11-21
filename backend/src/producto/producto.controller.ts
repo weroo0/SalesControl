@@ -22,6 +22,7 @@ import {
   ApiResponse,
   ApiOkResponse,
   ApiCreatedResponse,
+  getSchemaPath,
 } from '@nestjs/swagger';
 import { ProductoResponseDto } from './dto/producto-response.dto.js';
 import {
@@ -161,7 +162,19 @@ export class ProductoController {
   })
   @ApiOkResponse({
     description: 'Producto desactivado correctamente.',
-    type: ProductoResponseDto,
+    schema: {
+      allOf: [
+        { $ref: getSchemaPath(ProductoResponseDto) },
+        {
+          properties: {
+            activo: {
+              type: 'boolean',
+              example: false,
+            },
+          },
+        },
+      ],
+    },
   })
   @ApiResponse({
     status: 404,

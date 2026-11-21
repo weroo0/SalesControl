@@ -36,3 +36,9 @@ export interface CrearProductoInput {
     precio: number;
     categoriaId: number;
 }
+
+export interface ActualizarProductoInput {
+    nombre: string;
+    precio: number;
+    categoriaId: number;
+}

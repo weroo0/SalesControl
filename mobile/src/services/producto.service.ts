@@ -4,7 +4,8 @@ import type {
     FiltrosProductos,
     PaginaProductos,
     Producto,
-    CrearProductoInput
+    CrearProductoInput,
+    ActualizarProductoInput
 } from '@/types/producto.types';
 
 export const productoService = {
@@ -46,5 +47,24 @@ export const productoService = {
             body: JSON.stringify(datos),
         });
     },
-    
+
+    async actualizar(request: AuthenticatedRequest, id: number, datos: ActualizarProductoInput): Promise<Producto> {
+        return request<Producto>(`/productos/${id}`, {
+            method: 'PATCH',
+            body: JSON.stringify(datos),
+        });
+    },
+
+    async desactivar(request: AuthenticatedRequest, id: number): Promise<Producto> {
+        return request<Producto>(`/productos/${id}/desactivar`, {
+            method: 'PATCH'
+        });
+    },    
+
+    async activar(request: AuthenticatedRequest, id: number): Promise<Producto> {
+        return request<Producto>(`/productos/${id}/activar`, {
+            method: 'PATCH'
+        });
+    },       
+
 };
