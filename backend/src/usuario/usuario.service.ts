@@ -24,7 +24,7 @@ export class UsuarioService {
     if (usuarioExistente) {
       throw new ConflictException('El correo electrónico ya está registrado');
     }
-    const passwordHash = await argon2.hash(createUsuarioDto.password);
+    const passwordHash = await argon2.hash(createUsuarioDto.password.trim());
 
     return this.prisma.usuario.create({
       data: {

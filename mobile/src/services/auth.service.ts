@@ -1,5 +1,6 @@
 import * as SecureStore from 'expo-secure-store';
-import { apiRequest } from './api';
+import { apiRequest, AuthenticatedRequest } from './api';
+import { CrearUsuarioInput } from '@/types/usuario.types';
 
 const TOKEN_KEY = 'salescontrol_access_token';
 
@@ -32,6 +33,13 @@ export const authService = {
     await SecureStore.setItemAsync(TOKEN_KEY, token);
 
     return token;
+  },
+
+  async register(request: AuthenticatedRequest, datos: CrearUsuarioInput): Promise<void> {
+    return request('/usuarios', {
+      method: 'POST',
+      body: JSON.stringify(datos)
+    })
   },
 
   async getToken(): Promise<string | null> {

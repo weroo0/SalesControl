@@ -53,7 +53,7 @@ export default function HomeScreen() {
               Hacer venta
             </Text>
           </Pressable>
-        </Link>    
+        </Link>
 
         <Link href="/ventas" asChild>
           <Pressable style={styles.button}>
@@ -61,7 +61,7 @@ export default function HomeScreen() {
               Historial de ventas
             </Text>
           </Pressable>
-        </Link>   
+        </Link>
 
         <Link href="/pagos/nuevo" asChild>
           <Pressable style={styles.button}>
@@ -69,7 +69,7 @@ export default function HomeScreen() {
               Registrar un pago
             </Text>
           </Pressable>
-        </Link>   
+        </Link>
 
         <Link href="/pagos/historial" asChild>
           <Pressable style={styles.button}>
@@ -77,7 +77,13 @@ export default function HomeScreen() {
               Historial de pagos
             </Text>
           </Pressable>
-        </Link>                         
+        </Link>
+
+        <Link href="/register" asChild>
+          <Pressable style={styles.button}>
+            <Text style={styles.buttonText}>Registra tu cuenta</Text>
+          </Pressable>
+        </Link>
 
         <Pressable
           style={styles.button}
