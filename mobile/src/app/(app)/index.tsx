@@ -47,6 +47,22 @@ export default function HomeScreen() {
           </Pressable>
         </Link>
 
+        <Link href="/ventas/nueva" asChild>
+          <Pressable style={styles.button}>
+            <Text style={styles.buttonText}>
+              Hacer venta
+            </Text>
+          </Pressable>
+        </Link>    
+
+        <Link href="/ventas" asChild>
+          <Pressable style={styles.button}>
+            <Text style={styles.buttonText}>
+              Historial de ventas
+            </Text>
+          </Pressable>
+        </Link>             
+
         <Pressable
           style={styles.button}
           onPress={() => {
