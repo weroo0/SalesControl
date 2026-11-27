@@ -6,7 +6,7 @@ import {
 } from 'react-native';
 
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useAuth } from '../../context/AuthContext';
+import { useAuth } from '@/context/AuthContext';
 import { Link } from 'expo-router';
 
 export default function HomeScreen() {
@@ -27,23 +27,9 @@ export default function HomeScreen() {
           Esta pantalla está protegida mediante Expo Router.
         </Text>
 
-        <Link href="/clientes" asChild>
-          <Pressable style={styles.button}>
-            <Text style={styles.buttonText}>Ver clientes</Text>
-          </Pressable>
-        </Link>
-
         <Link href="/categorias" asChild>
           <Pressable style={styles.button}>
             <Text style={styles.buttonText}>Ver categorias</Text>
-          </Pressable>
-        </Link>
-
-        <Link href="/productos" asChild>
-          <Pressable style={styles.button}>
-            <Text style={styles.buttonText}>
-              Ver productos
-            </Text>
           </Pressable>
         </Link>
 
@@ -51,14 +37,6 @@ export default function HomeScreen() {
           <Pressable style={styles.button}>
             <Text style={styles.buttonText}>
               Hacer venta
-            </Text>
-          </Pressable>
-        </Link>
-
-        <Link href="/ventas" asChild>
-          <Pressable style={styles.button}>
-            <Text style={styles.buttonText}>
-              Historial de ventas
             </Text>
           </Pressable>
         </Link>

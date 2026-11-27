@@ -1,6 +1,8 @@
 import { useState } from "react";
 
-import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Pressable, StyleSheet, View } from "react-native";
+
+import {TextInput, Text} from "react-native-paper"
 
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -51,11 +53,9 @@ export default function LoginScreen() {
                 <TextInput
                     style={styles.input}
                     placeholder="Correo electrónico"
-                    keyboardType="email-address"
-                    autoCapitalize="none"
-                    autoCorrect={false}
                     value={email}
                     onChangeText={setEmail}
+                    underlineColor="transparent"
                 />
 
                 <TextInput
@@ -64,6 +64,7 @@ export default function LoginScreen() {
                     secureTextEntry
                     value={password}
                     onChangeText={setPassword}
+                    underlineColor="transparent"
                 />   
 
                 {error ? (
@@ -83,9 +84,7 @@ export default function LoginScreen() {
                     ) : (
                         <Text style={styles.buttonText}>Iniciar sesión</Text>
                     )
-
                     }
-                    
                 </Pressable>        
             </View>
         </SafeAreaView>
@@ -115,7 +114,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   input: {
-    padding: 14,
     borderRadius: 10,
     borderWidth: 1,
     borderColor: '#CBD5E1',
@@ -123,7 +121,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   button: {
-    backgroundColor: '#2563EB',
+    backgroundColor: '#111111',
     borderRadius: 10,
     padding: 16,
     alignItems: 'center',

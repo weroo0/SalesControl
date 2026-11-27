@@ -239,7 +239,7 @@ export default function ProductosScreen() {
     return (
         <SafeAreaView style={styles.container}>
             <View style={styles.header}>
-                <Pressable onPress={() => router.back()}>
+                <Pressable onPress={() => router.navigate('/')}>
                     <Text style={styles.back}>← Volver</Text>
                 </Pressable>
 
