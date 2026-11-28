@@ -1,578 +1,598 @@
-import { act, useCallback, useState } from "react";
+import { useCallback, useState } from 'react';
+import { FlatList, ScrollView, StyleSheet, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Appbar,
+  Avatar,
+  Button,
+  Chip,
+  FAB,
+  Icon,
+  Menu,
+  Searchbar,
+  Surface,
+  Text,
+  TouchableRipple,
+} from 'react-native-paper';
+import { useFocusEffect, useRouter } from 'expo-router';
 
-import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View, TextInput } from "react-native";
-
-import { SafeAreaView } from "react-native-safe-area-context";
-
-import { useAuth } from "@/context/AuthContext";
-import { clienteService } from "@/services/cliente.service";
-import { ApiError } from "@/services/api";
-
-import type { Cliente } from "@/types/cliente.types";
-import { useAuthenticatedRequest } from "@/hooks/useAuthenticatedRequest";
-
-import { useRouter, useFocusEffect } from "expo-router";
+import { clienteService } from '@/services/cliente.service';
+import { ApiError } from '@/services/api';
+import type { Cliente } from '@/types/cliente.types';
+import { useAuthenticatedRequest } from '@/hooks/useAuthenticatedRequest';
 
 const LIMITES = [10, 20, 50] as const;
 
+function obtenerIniciales(nombre: string): string {
+  const partes = nombre.trim().split(/\s+/);
+  if (partes.length === 0) return '?';
+  if (partes.length === 1) return partes[0].slice(0, 2).toUpperCase();
+  return `${partes[0][0]}${partes[1][0]}`.toUpperCase();
+}
+
 export default function ClientesScreen() {
-    const request = useAuthenticatedRequest();
-    const router = useRouter();
+  const request = useAuthenticatedRequest();
+  const router = useRouter();
 
-    const [clientes, setClientes] = useState<Cliente[]>([]);
-    const [cargando, setCargando] = useState(true);
-    const [error, setError] = useState<string | null>(null);
-    const [recarga, setRecarga] = useState(0);
-    const [activo, setActivo] = useState(true);
-    const [busqueda, setBusqueda] = useState('');
-    const [nombreAplicado, setNombreAplicado] = useState('');
+  const [clientes, setClientes] = useState<Cliente[]>([]);
+  const [cargando, setCargando] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [recarga, setRecarga] = useState(0);
 
-    const [pagina, setPagina] = useState(1);
-    const [limite, setLimite] = useState(20);
+  const [activo, setActivo] = useState(true);
+  const [busqueda, setBusqueda] = useState('');
+  const [nombreAplicado, setNombreAplicado] = useState('');
 
-    const [total, setTotal] = useState(0);
-    const [totalPaginas, setTotalPaginas] = useState(0);
+  const [pagina, setPagina] = useState(1);
+  const [limite, setLimite] = useState<number>(20);
+  const [menuLimiteVisible, setMenuLimiteVisible] = useState(false);
 
-    useFocusEffect(
-        useCallback(() => {
-            let vigente = true;
+  const [total, setTotal] = useState(0);
+  const [totalPaginas, setTotalPaginas] = useState(0);
 
-            async function cargarClientes() {
-                setCargando(true);
-                setError(null);
+  useFocusEffect(
+    useCallback(() => {
+      let vigente = true;
 
-                try {
-                    const resultado = await clienteService.listarPaginado(
-                        request,
-                        {
-                            activo,
-                            nombre: nombreAplicado,
-                            page: pagina,
-                            limit: limite,
-                        },
-                    );
+      async function cargarClientes() {
+        setCargando(true);
+        setError(null);
 
-                    if (vigente) {
-                        setClientes(resultado.data);
-                        setTotal(resultado.total);
-                        setTotalPaginas(resultado.totalPages);
-                    }
-                } catch (err) {
-                    if (!vigente) return;
+        try {
+          const resultado = await clienteService.listarPaginado(request, {
+            activo,
+            nombre: nombreAplicado,
+            page: pagina,
+            limit: limite,
+          });
 
-                    if (err instanceof ApiError && err.status === 401) {
-                        return;
-                    } else if (err instanceof ApiError && err.status === 403) {
-                        setError('Tu usuario no tiene permiso para consultar clientes');
-                    } else {
-                        setError(
-                            err instanceof Error
-                                ? err.message
-                                : 'No fue posible obtener los clientes',
+          if (vigente) {
+            setClientes(resultado.data);
+            setTotal(resultado.total);
+            setTotalPaginas(resultado.totalPages);
+          }
+        } catch (err) {
+          if (!vigente) return;
 
-                        );
-                    }
-                } finally {
-                    if (vigente) {
-                        setCargando(false);
-                    }
-                }
+          if (err instanceof ApiError && err.status === 401) {
+            return;
+          } else if (err instanceof ApiError && err.status === 403) {
+            setError('Tu usuario no tiene permiso para consultar clientes');
+          } else {
+            setError(
+              err instanceof Error
+                ? err.message
+                : 'No fue posible obtener los clientes'
+            );
+          }
+        } finally {
+          if (vigente) {
+            setCargando(false);
+          }
+        }
+      }
+
+      void cargarClientes();
+
+      return () => {
+        vigente = false;
+      };
+    }, [request, recarga, activo, nombreAplicado, pagina, limite])
+  );
+
+  function cambiarEstado(nuevoEstado: boolean) {
+    if (activo === nuevoEstado) return;
+    setActivo(nuevoEstado);
+    setPagina(1);
+  }
+
+  function aplicarBusqueda() {
+    setNombreAplicado(busqueda.trim());
+    setPagina(1);
+  }
+
+  function limpiarBusqueda() {
+    setBusqueda('');
+    setNombreAplicado('');
+    setPagina(1);
+  }
+
+  function cambiarLimite(nuevoLimite: number) {
+    setLimite(nuevoLimite);
+    setPagina(1);
+    setMenuLimiteVisible(false);
+  }
+
+  function paginaAnterior() {
+    setPagina((actual) => Math.max(1, actual - 1));
+  }
+
+  function paginaSiguiente() {
+    setPagina((actual) => Math.min(totalPaginas, actual + 1));
+  }
+
+  const puedeRetroceder = !cargando && pagina > 1;
+  const puedeAvanzar = !cargando && pagina < totalPaginas;
+  const totalPaginasVisual = Math.max(1, totalPaginas);
+
+  return (
+    <View style={styles.container}>
+      <Appbar.Header elevated style={styles.appbar}>
+        <Appbar.Content title="Clientes" titleStyle={styles.appbarTitle} />
+        <Appbar.Action
+          icon="refresh"
+          accessibilityLabel="Actualizar lista"
+          disabled={cargando}
+          onPress={() => setRecarga((actual) => actual + 1)}
+        />
+      </Appbar.Header>
+      <View style={styles.topControls}>
+        <Searchbar
+          placeholder="Buscar cliente por nombre..."
+          value={busqueda}
+          onChangeText={(texto) => {
+            setBusqueda(texto);
+            if (texto === '' && nombreAplicado !== '') {
+              setNombreAplicado('');
+              setPagina(1);
             }
+          }}
+          onSubmitEditing={aplicarBusqueda}
+          onIconPress={aplicarBusqueda}
+          onClearIconPress={limpiarBusqueda}
+          returnKeyType="search"
+          autoCorrect={false}
+          style={styles.searchbar}
+          inputStyle={styles.searchInput}
+        />
 
-            void cargarClientes();
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.chipsRow}
+        >
+          <Chip
+            selected={activo}
+            showSelectedCheck={false}
+            icon={activo ? 'check-circle' : 'circle-outline'}
+            onPress={() => cambiarEstado(true)}
+            style={[styles.chip, activo && styles.chipActivoSelected]}
+            textStyle={activo ? styles.chipActivoText : undefined}
+          >
+            Activos
+          </Chip>
 
-            return () => {
-                vigente = false;
-            };
-        }, [request, recarga, activo, nombreAplicado, pagina, limite])
-    );
+          <Chip
+            selected={!activo}
+            showSelectedCheck={false}
+            icon={!activo ? 'check-circle' : 'circle-outline'}
+            onPress={() => cambiarEstado(false)}
+            style={[styles.chip, !activo && styles.chipInactivoSelected]}
+            textStyle={!activo ? styles.chipInactivoText : undefined}
+          >
+            Inactivos
+          </Chip>
 
-    function cambiarEstado(nuevoEstado: boolean) {
-        setActivo(nuevoEstado);
-        setPagina(1);
-    }
+          <Chip
+            icon="alert-circle-outline"
+            onPress={() => router.push('/clientes/con-deuda')}
+            style={styles.debtChip}
+            textStyle={styles.debtChipText}
+          >
+            Con deuda
+          </Chip>
+        </ScrollView>
 
-    function aplicarBusqueda() {
-        setNombreAplicado(busqueda.trim());
-        setPagina(1);
-    }
+        <View style={styles.resultsBar}>
+          <Text variant="bodySmall" style={styles.resultsText}>
+            {total} cliente(s) encontrado(s)
+          </Text>
 
-    function cambiarLimite(nuevoLimite: number) {
-        setLimite(nuevoLimite);
-        setPagina(1);
-    }
+          <Menu
+            visible={menuLimiteVisible}
+            onDismiss={() => setMenuLimiteVisible(false)}
+            anchor={
+              <Button
+                mode="text"
+                compact
+                icon="chevron-down"
+                contentStyle={styles.limitAnchorContent}
+                labelStyle={styles.limitAnchorLabel}
+                onPress={() => setMenuLimiteVisible(true)}
+              >
+                Mostrar: {limite}
+              </Button>
+            }
+          >
+            {LIMITES.map((cantidad) => (
+              <Menu.Item
+                key={cantidad}
+                title={`${cantidad} por página`}
+                leadingIcon={limite === cantidad ? 'check' : undefined}
+                onPress={() => cambiarLimite(cantidad)}
+              />
+            ))}
+          </Menu>
+        </View>
+      </View>
 
-    function paginaAnterior() {
-        setPagina((actual) => Math.max(1, actual - 1));
-    }
-
-    function paginaSiguiente() {
-        setPagina((actual) => Math.min(totalPaginas, actual + 1))
-    }
-
-    const puedeRetroceder = !cargando && pagina > 1;
-    const puedeAvanzar = !cargando && pagina < totalPaginas;
-
-    const totalPaginasVisual = Math.max(1, totalPaginas);
-
-    return (
-        <SafeAreaView style={styles.container}>
-            <View style={styles.header}>
-                <Text style={styles.title}>Clientes</Text>
-
-                <Pressable style={styles.newButton} onPress={() => router.push('/clientes/nuevo')}>
-                    <Text style={styles.buttonText}>Nuevo cliente</Text>
-                </Pressable>
-            </View>
-
-            <Pressable
-                style={styles.debtButton}
-                onPress={() => router.push('/clientes/con-deuda')}
+      <View style={styles.listWrapper}>
+        {cargando ? (
+          <View style={styles.center}>
+            <ActivityIndicator size="large" />
+            <Text variant="bodyMedium" style={styles.mutedText}>
+              Consultando clientes...
+            </Text>
+          </View>
+        ) : error ? (
+          <View style={styles.center}>
+            <Icon source="alert-circle-outline" size={40} color="#DC2626" />
+            <Text variant="bodyMedium" style={styles.errorText}>
+              {error}
+            </Text>
+            <Button
+              mode="contained"
+              icon="refresh"
+              onPress={() => setRecarga((actual) => actual + 1)}
             >
-                <Text style={styles.debtButtonText}>
-                    Consultar clientes con deuda
+              Reintentar
+            </Button>
+          </View>
+        ) : (
+          <FlatList
+            data={clientes}
+            keyExtractor={(item) => String(item.id)}
+            contentContainerStyle={styles.listContent}
+            ListEmptyComponent={
+              <View style={styles.emptyContainer}>
+                <Icon source="account-search-outline" size={44} color="#94A3B8" />
+                <Text variant="bodyMedium" style={styles.mutedText}>
+                  No se encontraron clientes con esa búsqueda
                 </Text>
-            </Pressable>
-
-            <View style={styles.filters}>
-                <Text style={styles.sectionLabel}>Estado del cliente</Text>
-
-                <View style={styles.segmented}>
-                    <Pressable
-                        style={[
-                            styles.segment,
-                            activo && styles.segmentSelected
-                        ]}
-                        onPress={() => cambiarEstado(true)}
-                    >
-                        <Text
-                            style={[
-                                styles.segmentText,
-                                activo && styles.segmentTextSelected
-                            ]}
-                        >
-                            Activos
-                        </Text>
-                    </Pressable>
-
-                    <Pressable
-                        style={[
-                            styles.segment,
-                            !activo && styles.segmentSelected
-                        ]}
-                        onPress={() => cambiarEstado(false)}
-                    >
-                        <Text
-                            style={[
-                                styles.segmentText,
-                                !activo && styles.segmentTextSelected
-                            ]}
-                        >
-                            Inactivos
-                        </Text>
-                    </Pressable>
-                </View>
-
-                <Text style={styles.sectionLabel}>
-                    Buscar cliente
-                </Text>
-
-                <TextInput
-                    style={styles.searchInput}
-                    placeholder="Escribe un nombre..."
-                    value={busqueda}
-                    onChangeText={setBusqueda}
-                    onSubmitEditing={aplicarBusqueda}
-                    returnKeyType="search"
-                    autoCorrect={false}
-                />
-
-                <View>
-                    <Pressable
-                        style={styles.searchButton}
-                        onPress={aplicarBusqueda}
-                    >
-                        <Text style={styles.buttonText}>
-                            Buscar
-                        </Text>
-                    </Pressable>
-                </View>
-
-                <Text style={styles.sectionLabel}>
-                    Registros por página
-                </Text>
-
-                <View style={styles.limitOptions}>
-                    {LIMITES.map((cantidad) => (
-                        <Pressable
-                            key={cantidad}
-                            style={[
-                                styles.limitButton,
-                                limite === cantidad &&
-                                styles.limitSelected,
-                            ]}
-                            onPress={() => cambiarLimite(cantidad)}
-                        >
-                            <Text
-                                style={[
-                                    styles.limitText,
-                                    limite === cantidad &&
-                                    styles.limitTextSelected,
-                                ]}
-                            >
-                                {cantidad}
-                            </Text>
-                        </Pressable>
-                    ))}
-                </View>
-            </View>
-
-            {cargando ? (
-                <View style={styles.center}>
-                    <ActivityIndicator
-                        size="large"
-                        color="#2563EB"
-                    />
-                    <Text style={styles.subtitle}>
-                        Consultando clientes...
-                    </Text>
-                </View>
-            ) : error ? (
-                <View style={styles.center}>
-                    <Text style={styles.error}>{error}</Text>
-
-                    <Pressable
-                        style={styles.searchButton}
-                        onPress={() =>
-                            setRecarga((actual) => actual + 1)
-                        }
-                    >
-                        <Text style={styles.buttonText}>Reintentar</Text>
-                    </Pressable>
-                </View>
-            ) : (
-                <>
-
-                    <View style={styles.resultsHeader}>
-                        <Text style={styles.subtitle}>
-                            {total} cliente(s) encontrados
-                        </Text>
-
-                        <Pressable
-                            onPress={() =>
-                                setRecarga((actual) => actual + 1)
-                            }
-                        >
-                            <Text style={styles.refreshText}>
-                                Actualizar
-                            </Text>
-                        </Pressable>
-                    </View>
-
-                    <FlatList
-                        data={clientes}
-                        keyExtractor={(item) => String(item.id)}
-                        contentContainerStyle={styles.list}
-                        ListEmptyComponent={
-                            <Text style={styles.empty}>No se encontraron clientes con esa busqueda</Text>
-                        }
-                        renderItem={({ item }) => (
-                            <Pressable style={styles.card}
-                                onPress={() => {
-                                    router.push({
-                                        pathname: '/clientes/[id]',
-                                        params: {
-                                            id: String(item.id),
-                                        },
-                                    })
-                                }}>
-                                <Text style={styles.name}>{item.nombre}</Text>
-                                <Text style={styles.detail}>{item.telefono || 'Sin teléfono'}</Text>
-                                <Text style={item.activo ? styles.active : styles.inactive}>{item.activo ? 'Activo' : 'Inactivo'}</Text>
-                                <Text style={styles.openDetail}>Ver detalles</Text>
-                            </Pressable>
-                        )}
+              </View>
+            }
+            renderItem={({ item }) => (
+              <Surface elevation={1} style={styles.card}>
+                <TouchableRipple
+                  borderless
+                  style={styles.cardTouchable}
+                  onPress={() =>
+                    router.push({
+                      pathname: '/clientes/[id]',
+                      params: { id: String(item.id) },
+                    })
+                  }
+                >
+                  <View style={styles.cardRow}>
+                    <Avatar.Text
+                      size={44}
+                      label={obtenerIniciales(item.nombre)}
+                      style={[
+                        styles.avatar,
+                        !item.activo && styles.avatarInactivo,
+                      ]}
+                      labelStyle={styles.avatarLabel}
                     />
 
-                    <View style={styles.pagination}>
-                        <Pressable
-                            style={[
-                                styles.pageButton,
-                                !puedeRetroceder && styles.disabled,
-                            ]}
-                            onPress={paginaAnterior}
-                            disabled={!puedeRetroceder}
-                        >
-                            <Text style={styles.pageButtonText}>
-                                Anterior
-                            </Text>
-                        </Pressable>
+                    <View style={styles.cardInfo}>
+                      <Text
+                        variant="titleMedium"
+                        numberOfLines={1}
+                        style={styles.clientName}
+                      >
+                        {item.nombre}
+                      </Text>
 
-                        <View style={styles.pageInfo}>
-                            <Text style={styles.pageText}>
-                                Página {pagina} de {totalPaginasVisual}
-                            </Text>
-                            <Text style={styles.pageSubtext}>
-                                {clientes.length} de {total} registros
-                            </Text>
+                      <View style={styles.metaRow}>
+                        <Icon
+                          source={item.telefono ? 'phone-outline' : 'phone-off-outline'}
+                          size={14}
+                          color="#64748B"
+                        />
+                        <Text variant="bodySmall" style={styles.phoneText}>
+                          {item.telefono || 'Sin teléfono'}
+                        </Text>
+                      </View>
+
+                      <View style={styles.badgeRow}>
+                        <View
+                          style={[
+                            styles.statusBadge,
+                            item.activo
+                              ? styles.badgeActivo
+                              : styles.badgeInactivo,
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              styles.statusBadge,
+                              item.activo
+                                ? styles.badgeActivoText
+                                : styles.badgeInactivoText,
+                            ]}
+                          >
+                            {item.activo ? 'Activo' : 'Inactivo'}
+                          </Text>
                         </View>
-                        <Pressable
-                            style={[
-                                styles.pageButton,
-                                !puedeAvanzar && styles.disabled,
-                            ]}
-                            onPress={paginaSiguiente}
-                            disabled={!puedeAvanzar}
-                        >
-                            <Text style={styles.pageButtonText}>
-                                Siguiente
-                            </Text>
-                        </Pressable>
+                      </View>
                     </View>
-                </>
+
+                    <Icon source="chevron-right" size={22} color="#94A3B8" />
+                  </View>
+                </TouchableRipple>
+              </Surface>
             )}
-        </SafeAreaView>
-    );
+          />
+        )}
+
+        <FAB
+          icon="plus"
+          label="Nuevo"
+          style={styles.fab}
+          color="#FFFFFF"
+          onPress={() => router.push('/clientes/nuevo')}
+        />
+      </View>
+
+      {!cargando && !error && (
+        <Surface elevation={2} style={styles.paginationBar}>
+          <Button
+            mode="outlined"
+            compact
+            icon="chevron-left"
+            disabled={!puedeRetroceder}
+            onPress={paginaAnterior}
+          >
+            Anterior
+          </Button>
+
+          <View style={styles.pageInfo}>
+            <Text variant="labelMedium" style={styles.pageText}>
+              Página {pagina} de {totalPaginasVisual}
+            </Text>
+            <Text variant="bodySmall" style={styles.pageSubtext}>
+              {clientes.length} de {total} registros
+            </Text>
+          </View>
+
+          <Button
+            mode="outlined"
+            compact
+            icon="chevron-right"
+            contentStyle={styles.nextButtonContent}
+            disabled={!puedeAvanzar}
+            onPress={paginaSiguiente}
+          >
+            Siguiente
+          </Button>
+        </Surface>
+      )}
+    </View>
+  );
 }
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: '#F5F7FA',
-    },
-    header: {
-        padding: 16,
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        gap: 12,
-    },
-    title: {
-        fontSize: 26,
-        fontWeight: '700',
-        color: '#162033',
-    },
-    newButton: {
-        backgroundColor: '#16845D',
-        paddingHorizontal: 14,
-        paddingVertical: 12,
-        borderRadius: 10,
-    },
-    buttonText: {
-        color: '#FFFFFF',
-        fontSize: 14,
-        fontWeight: '600',
-    },
-    filters: {
-        paddingHorizontal: 16,
-        gap: 10,
-        paddingBottom: 16,
-    },
-    sectionLabel: {
-        fontSize: 14,
-        fontWeight: '600',
-        color: '#334155',
-    },
-    segmented: {
-        flexDirection: 'row',
-        backgroundColor: '#E2E8F0',
-        borderRadius: 10,
-        padding: 4,
-    },
-    segment: {
-        flex: 1,
-        alignItems: 'center',
-        padding: 12,
-        borderRadius: 8,
-    },
-    segmentSelected: {
-        backgroundColor: '#2563EB',
-    },
-    segmentText: {
-        fontSize: 14,
-        color: '#475569',
-        fontWeight: '600',
-    },
-    segmentTextSelected: {
-        color: '#FFFFFF',
-    },
-    searchInput: {
-        borderWidth: 1,
-        borderColor: '#CBD5E1',
-        borderRadius: 10,
-        padding: 12,
-        fontSize: 15,
-        backgroundColor: '#FFFFFF',
-        color: '#162033',
-    },
-    searchActions: {
-        flexDirection: 'row',
-        gap: 10,
-    },
-    searchButton: {
-        backgroundColor: '#2563EB',
-        padding: 12,
-        borderRadius: 10,
-        alignItems: 'center',
-        paddingHorizontal: 22,
-    },
-    clearButton: {
-        borderWidth: 1,
-        borderColor: '#CBD5E1',
-        padding: 12,
-        borderRadius: 10,
-        alignItems: 'center',
-        paddingHorizontal: 22,
-    },
-    clearText: {
-        color: '#334155',
-        fontWeight: '600',
-    },
-    limitOptions: {
-        flexDirection: 'row',
-        gap: 10,
-    },
-    limitButton: {
-        paddingVertical: 9,
-        paddingHorizontal: 20,
-        borderWidth: 1,
-        borderColor: '#CBD5E1',
-        borderRadius: 8,
-        backgroundColor: '#FFFFFF',
-    },
-    limitSelected: {
-        backgroundColor: '#2563EB',
-        borderColor: '#2563EB',
-    },
-    limitText: {
-        color: '#334155',
-        fontWeight: '600',
-    },
-    limitTextSelected: {
-        color: '#FFFFFF',
-    },
-    resultsHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        paddingHorizontal: 16,
-        paddingVertical: 10,
-    },
-    subtitle: {
-        color: '#64748B',
-        fontSize: 13,
-    },
-    refreshText: {
-        color: '#2563EB',
-        fontSize: 13,
-        fontWeight: '600',
-    },
-    list: {
-        paddingHorizontal: 16,
-        paddingBottom: 16,
-        gap: 12,
-        flexGrow: 1,
-    },
-    card: {
-        backgroundColor: '#FFFFFF',
-        borderRadius: 12,
-        borderWidth: 1,
-        borderColor: '#E2E8F0',
-        padding: 16,
-        gap: 6,
-    },
-    name: {
-        fontSize: 17,
-        fontWeight: '700',
-        color: '#162033',
-    },
-    detail: {
-        fontSize: 14,
-        color: '#64748B',
-    },
-    active: {
-        fontSize: 13,
-        color: '#16845D',
-        fontWeight: '600',
-    },
-    inactive: {
-        fontSize: 13,
-        color: '#DC2626',
-        fontWeight: '600',
-    },
-    openDetail: {
-        textAlign: 'right',
-        color: '#2563EB',
-        fontSize: 13,
-        marginTop: 6,
-    },
-    empty: {
-        textAlign: 'center',
-        color: '#64748B',
-        paddingTop: 36,
-    },
-    center: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-        padding: 24,
-        gap: 14,
-    },
-    error: {
-        color: '#DC2626',
-        fontSize: 14,
-        textAlign: 'center',
-    },
-    pagination: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        paddingHorizontal: 16,
-        paddingVertical: 14,
-        borderTopWidth: 1,
-        borderTopColor: '#E2E8F0',
-        backgroundColor: '#FFFFFF',
-        gap: 8,
-    },
-    pageButton: {
-        backgroundColor: '#2563EB',
-        borderRadius: 8,
-        paddingHorizontal: 12,
-        paddingVertical: 12,
-    },
-    pageButtonText: {
-        color: '#FFFFFF',
-        fontSize: 13,
-        fontWeight: '600',
-    },
-    pageInfo: {
-        alignItems: 'center',
-        gap: 3,
-    },
-    pageText: {
-        fontSize: 13,
-        fontWeight: '600',
-        color: '#162033',
-    },
-    pageSubtext: {
-        fontSize: 11,
-        color: '#64748B',
-    },
-    disabled: {
-        opacity: 0.4,
-    },
-
-    debtButton: {
-        marginHorizontal: 16,
-        marginBottom: 12,
-        backgroundColor: '#334155',
-        padding: 14,
-        borderRadius: 10,
-        alignItems: 'center',
-    },
-
-    debtButtonText: {
-        color: '#FFFFFF',
-        fontSize: 14,
-        fontWeight: '600',
-    },
+  container: {
+    flex: 1,
+    backgroundColor: '#F5F7FA',
+  },
+  appbar: {
+    backgroundColor: '#FFFFFF',
+  },
+  appbarTitle: {
+    fontWeight: '700',
+    color: '#162033',
+  },
+  topControls: {
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    paddingBottom: 6,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E2E8F0',
+    gap: 10,
+  },
+  searchbar: {
+    backgroundColor: '#F1F5F9',
+    borderRadius: 12,
+    height: 46,
+  },
+  searchInput: {
+    minHeight: 0,
+    fontSize: 15,
+  },
+  chipsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 2,
+  },
+  chip: {
+    backgroundColor: '#F1F5F9',
+  },
+  chipActivoSelected: {
+    backgroundColor: '#DCFCE7',
+  },
+  chipActivoText: {
+    color: '#15803D',
+    fontWeight: '600',
+  },
+  chipInactivoSelected: {
+    backgroundColor: '#E2E8F0',
+  },
+  chipInactivoText: {
+    color: '#334155',
+    fontWeight: '600',
+  },
+  debtChip: {
+    backgroundColor: '#FEF2F2',
+    borderWidth: 1,
+    borderColor: '#FECACA',
+  },
+  debtChipText: {
+    color: '#DC2626',
+    fontWeight: '600',
+  },
+  resultsBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  resultsText: {
+    color: '#64748B',
+  },
+  limitAnchorContent: {
+    flexDirection: 'row-reverse',
+  },
+  limitAnchorLabel: {
+    fontSize: 12,
+    color: '#2563EB',
+  },
+  listWrapper: {
+    flex: 1,
+  },
+  listContent: {
+    padding: 16,
+    paddingBottom: 88, // Espacio extra para que el FAB no tape la última tarjeta
+    gap: 10,
+    flexGrow: 1,
+  },
+  card: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    overflow: 'hidden',
+  },
+  cardTouchable: {
+    padding: 14,
+  },
+  cardRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  avatar: {
+    backgroundColor: '#DBEAFE',
+  },
+  avatarInactivo: {
+    backgroundColor: '#E2E8F0',
+  },
+  avatarLabel: {
+    color: '#1E40AF',
+    fontWeight: '700',
+    fontSize: 15,
+  },
+  cardInfo: {
+    flex: 1,
+    gap: 4,
+  },
+  clientName: {
+    fontWeight: '700',
+    color: '#162033',
+  },
+  metaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  phoneText: {
+    color: '#64748B',
+  },
+  badgeRow: {
+    flexDirection: 'row',
+    marginTop: 2,
+  },
+  statusBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  badgeActivo: {
+    backgroundColor: '#DCFCE7',
+  },
+  badgeActivoText: {
+    color: '#15803D',
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  badgeInactivo: {
+    backgroundColor: '#FEE2E2',
+  },
+  badgeInactivoText: {
+    color: '#DC2626',
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  fab: {
+    position: 'absolute',
+    right: 16,
+    bottom: 16,
+    backgroundColor: '#16845D',
+    borderRadius: 16,
+  },
+  paginationBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    backgroundColor: '#FFFFFF',
+    borderTopWidth: 1,
+    borderTopColor: '#E2E8F0',
+  },
+  nextButtonContent: {
+    flexDirection: 'row-reverse',
+  },
+  pageInfo: {
+    alignItems: 'center',
+  },
+  pageText: {
+    color: '#162033',
+    fontWeight: '600',
+  },
+  pageSubtext: {
+    color: '#64748B',
+    fontSize: 11,
+  },
+  center: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+    gap: 12,
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingTop: 48,
+    gap: 10,
+  },
+  mutedText: {
+    color: '#64748B',
+    textAlign: 'center',
+  },
+  errorText: {
+    color: '#DC2626',
+    textAlign: 'center',
+  },
 });

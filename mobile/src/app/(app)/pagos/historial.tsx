@@ -20,6 +20,7 @@ import type {
     MetodoPago,
     PagoListado,
 } from '@/types/pago.types';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 type FiltrosAplicados = Omit<FiltrosPagos, 'page' | 'limit'>;
 
@@ -188,266 +189,268 @@ export default function HistorialPagosScreen() {
     };
 
     return (
-        <ScrollView
-            style={styles.contenedor}
-            contentContainerStyle={styles.contenido}
-            keyboardShouldPersistTaps="handled"
-        >
-            <View style={styles.encabezado}>
-                <Pressable onPress={() => router.back()}>
-                    <Text style={styles.volver}>‹ Volver</Text>
-                </Pressable>
+        <SafeAreaView style={styles.contenedor}>
+            <ScrollView
+                contentContainerStyle={styles.contenido}
+                keyboardShouldPersistTaps="handled"
+            >
+                <View style={styles.encabezado}>
+                    <Pressable onPress={() => router.back()}>
+                        <Text style={styles.volver}>‹ Volver</Text>
+                    </Pressable>
 
-                <Text style={styles.titulo}>Historial de pagos</Text>
-                <Text style={styles.subtitulo}>
-                    Consulta los abonos registrados.
-                </Text>
-
-                <Pressable
-                    style={styles.botonNuevo}
-                    onPress={() => router.push('/pagos/nuevo')}
-                >
-                    <Text style={styles.textoBotonNuevo}>
-                        + Registrar pago
-                    </Text>
-                </Pressable>
-            </View>
-
-            <View style={styles.tarjeta}>
-                <Text style={styles.tituloSeccion}>Filtros</Text>
-
-                <Text style={styles.etiqueta}>ID del cliente</Text>
-                <TextInput
-                    style={styles.input}
-                    value={clienteId}
-                    onChangeText={setClienteId}
-                    placeholder="Ej. 10"
-                    keyboardType="number-pad"
-                />
-
-                <Text style={styles.etiqueta}>ID del usuario</Text>
-                <TextInput
-                    style={styles.input}
-                    value={usuarioId}
-                    onChangeText={setUsuarioId}
-                    placeholder="Ej. 2"
-                    keyboardType="number-pad"
-                />
-
-                <Text style={styles.etiqueta}>Método de pago</Text>
-                <View style={styles.opciones}>
-                    {(['TODOS', 'EFECTIVO', 'TRANSFERENCIA'] as const).map(
-                        (metodo) => (
-                            <Pressable
-                                key={metodo}
-                                onPress={() => setMetodoPago(metodo)}
-                                style={[
-                                    styles.opcion,
-                                    metodoPago === metodo && styles.opcionActiva,
-                                ]}
-                            >
-                                <Text
-                                    style={[
-                                        styles.textoOpcion,
-                                        metodoPago === metodo &&
-                                            styles.textoOpcionActivo,
-                                    ]}
-                                >
-                                    {metodo === 'TODOS'
-                                        ? 'Todos'
-                                        : metodo === 'EFECTIVO'
-                                          ? 'Efectivo'
-                                          : 'Transferencia'}
-                                </Text>
-                            </Pressable>
-                        ),
-                    )}
-                </View>
-
-                <Text style={styles.etiqueta}>Estado</Text>
-                <View style={styles.opciones}>
-                    {(['TODOS', 'ACTIVA', 'CANCELADA'] as const).map(
-                        (valor) => (
-                            <Pressable
-                                key={valor}
-                                onPress={() => setEstado(valor)}
-                                style={[
-                                    styles.opcion,
-                                    estado === valor && styles.opcionActiva,
-                                ]}
-                            >
-                                <Text
-                                    style={[
-                                        styles.textoOpcion,
-                                        estado === valor &&
-                                            styles.textoOpcionActivo,
-                                    ]}
-                                >
-                                    {valor === 'TODOS'
-                                        ? 'Todos'
-                                        : valor === 'ACTIVA'
-                                          ? 'Activos'
-                                          : 'Cancelados'}
-                                </Text>
-                            </Pressable>
-                        ),
-                    )}
-                </View>
-
-                <Text style={styles.etiqueta}>Fecha desde</Text>
-                <TextInput
-                    style={styles.input}
-                    value={fechaDesde}
-                    onChangeText={setFechaDesde}
-                    placeholder="AAAA-MM-DD"
-                    autoCapitalize="none"
-                />
-
-                <Text style={styles.etiqueta}>Fecha hasta</Text>
-                <TextInput
-                    style={styles.input}
-                    value={fechaHasta}
-                    onChangeText={setFechaHasta}
-                    placeholder="AAAA-MM-DD"
-                    autoCapitalize="none"
-                />
-
-                <Pressable
-                    style={styles.botonAplicar}
-                    onPress={aplicarFiltros}
-                >
-                    <Text style={styles.textoBotonAplicar}>
-                        Aplicar filtros
-                    </Text>
-                </Pressable>
-
-                <Pressable
-                    style={styles.botonLimpiar}
-                    onPress={limpiarFiltros}
-                >
-                    <Text style={styles.textoBotonLimpiar}>
-                        Limpiar filtros
-                    </Text>
-                </Pressable>
-            </View>
-
-            <View style={styles.encabezadoLista}>
-                <Text style={styles.tituloSeccion}>Pagos registrados</Text>
-                <Text style={styles.total}>
-                    {totalRegistros} registros
-                </Text>
-            </View>
-
-            {cargando ? (
-                <ActivityIndicator
-                    size="large"
-                    color="#2563EB"
-                    style={styles.cargando}
-                />
-            ) : pagos.length === 0 ? (
-                <View style={styles.vacio}>
-                    <Text style={styles.vacioTitulo}>
-                        No hay pagos registrados
-                    </Text>
+                    <Text style={styles.titulo}>Historial de pagos</Text>
                     <Text style={styles.subtitulo}>
-                        No se encontraron resultados con los filtros actuales.
+                        Consulta los abonos registrados.
                     </Text>
+
+                    <Pressable
+                        style={styles.botonNuevo}
+                        onPress={() => router.push('/pagos/nuevo')}
+                    >
+                        <Text style={styles.textoBotonNuevo}>
+                            + Registrar pago
+                        </Text>
+                    </Pressable>
                 </View>
-            ) : (
-                <View style={styles.lista}>
-                    {pagos.map((pago) => (
-                        <Pressable
-                            key={pago.id}
-                            style={styles.pago}
-                            onPress={() => abrirDetalle(pago)}
-                        >
-                            <View style={styles.filaPrincipal}>
-                                <View style={styles.flexible}>
-                                    <Text style={styles.nombreCliente}>
-                                        {pago.cliente.nombre}
-                                    </Text>
-                                    <Text style={styles.fecha}>
-                                        {formatearFecha(pago.fechaPago)}
-                                    </Text>
-                                </View>
 
-                                <Text style={styles.monto}>
-                                    {formatearMoneda(pago.monto)}
-                                </Text>
-                            </View>
+                <View style={styles.tarjeta}>
+                    <Text style={styles.tituloSeccion}>Filtros</Text>
 
-                            <View style={styles.filaSecundaria}>
-                                <Text style={styles.metodo}>
-                                    {pago.metodoPago === 'EFECTIVO'
-                                        ? 'Efectivo'
-                                        : 'Transferencia'}
-                                </Text>
+                    <Text style={styles.etiqueta}>ID del cliente</Text>
+                    <TextInput
+                        style={styles.input}
+                        value={clienteId}
+                        onChangeText={setClienteId}
+                        placeholder="Ej. 10"
+                        keyboardType="number-pad"
+                    />
 
-                                <View
+                    <Text style={styles.etiqueta}>ID del usuario</Text>
+                    <TextInput
+                        style={styles.input}
+                        value={usuarioId}
+                        onChangeText={setUsuarioId}
+                        placeholder="Ej. 2"
+                        keyboardType="number-pad"
+                    />
+
+                    <Text style={styles.etiqueta}>Método de pago</Text>
+                    <View style={styles.opciones}>
+                        {(['TODOS', 'EFECTIVO', 'TRANSFERENCIA'] as const).map(
+                            (metodo) => (
+                                <Pressable
+                                    key={metodo}
+                                    onPress={() => setMetodoPago(metodo)}
                                     style={[
-                                        styles.estadoBadge,
-                                        pago.estado === 'ACTIVA'
-                                            ? styles.estadoActivo
-                                            : styles.estadoCancelado,
+                                        styles.opcion,
+                                        metodoPago === metodo && styles.opcionActiva,
                                     ]}
                                 >
                                     <Text
                                         style={[
-                                            styles.textoEstado,
-                                            pago.estado === 'ACTIVA'
-                                                ? styles.textoActivo
-                                                : styles.textoCancelado,
+                                            styles.textoOpcion,
+                                            metodoPago === metodo &&
+                                            styles.textoOpcionActivo,
                                         ]}
                                     >
-                                        {pago.estado === 'ACTIVA'
-                                            ? 'Activo'
-                                            : 'Cancelado'}
+                                        {metodo === 'TODOS'
+                                            ? 'Todos'
+                                            : metodo === 'EFECTIVO'
+                                                ? 'Efectivo'
+                                                : 'Transferencia'}
+                                    </Text>
+                                </Pressable>
+                            ),
+                        )}
+                    </View>
+
+                    <Text style={styles.etiqueta}>Estado</Text>
+                    <View style={styles.opciones}>
+                        {(['TODOS', 'ACTIVA', 'CANCELADA'] as const).map(
+                            (valor) => (
+                                <Pressable
+                                    key={valor}
+                                    onPress={() => setEstado(valor)}
+                                    style={[
+                                        styles.opcion,
+                                        estado === valor && styles.opcionActiva,
+                                    ]}
+                                >
+                                    <Text
+                                        style={[
+                                            styles.textoOpcion,
+                                            estado === valor &&
+                                            styles.textoOpcionActivo,
+                                        ]}
+                                    >
+                                        {valor === 'TODOS'
+                                            ? 'Todos'
+                                            : valor === 'ACTIVA'
+                                                ? 'Activos'
+                                                : 'Cancelados'}
+                                    </Text>
+                                </Pressable>
+                            ),
+                        )}
+                    </View>
+
+                    <Text style={styles.etiqueta}>Fecha desde</Text>
+                    <TextInput
+                        style={styles.input}
+                        value={fechaDesde}
+                        onChangeText={setFechaDesde}
+                        placeholder="AAAA-MM-DD"
+                        autoCapitalize="none"
+                    />
+
+                    <Text style={styles.etiqueta}>Fecha hasta</Text>
+                    <TextInput
+                        style={styles.input}
+                        value={fechaHasta}
+                        onChangeText={setFechaHasta}
+                        placeholder="AAAA-MM-DD"
+                        autoCapitalize="none"
+                    />
+
+                    <Pressable
+                        style={styles.botonAplicar}
+                        onPress={aplicarFiltros}
+                    >
+                        <Text style={styles.textoBotonAplicar}>
+                            Aplicar filtros
+                        </Text>
+                    </Pressable>
+
+                    <Pressable
+                        style={styles.botonLimpiar}
+                        onPress={limpiarFiltros}
+                    >
+                        <Text style={styles.textoBotonLimpiar}>
+                            Limpiar filtros
+                        </Text>
+                    </Pressable>
+                </View>
+
+                <View style={styles.encabezadoLista}>
+                    <Text style={styles.tituloSeccion}>Pagos registrados</Text>
+                    <Text style={styles.total}>
+                        {totalRegistros} registros
+                    </Text>
+                </View>
+
+                {cargando ? (
+                    <ActivityIndicator
+                        size="large"
+                        color="#2563EB"
+                        style={styles.cargando}
+                    />
+                ) : pagos.length === 0 ? (
+                    <View style={styles.vacio}>
+                        <Text style={styles.vacioTitulo}>
+                            No hay pagos registrados
+                        </Text>
+                        <Text style={styles.subtitulo}>
+                            No se encontraron resultados con los filtros actuales.
+                        </Text>
+                    </View>
+                ) : (
+                    <View style={styles.lista}>
+                        {pagos.map((pago) => (
+                            <Pressable
+                                key={pago.id}
+                                style={styles.pago}
+                                onPress={() => abrirDetalle(pago)}
+                            >
+                                <View style={styles.filaPrincipal}>
+                                    <View style={styles.flexible}>
+                                        <Text style={styles.nombreCliente}>
+                                            {pago.cliente.nombre}
+                                        </Text>
+                                        <Text style={styles.fecha}>
+                                            {formatearFecha(pago.fechaPago)}
+                                        </Text>
+                                    </View>
+
+                                    <Text style={styles.monto}>
+                                        {formatearMoneda(pago.monto)}
                                     </Text>
                                 </View>
-                            </View>
 
-                            <View style={styles.filaInferior}>
-                                <Text style={styles.usuario}>
-                                    Registró: {pago.usuario.nombre}
-                                </Text>
-                                <Text style={styles.verDetalle}>
-                                    Ver detalle ›
-                                </Text>
-                            </View>
-                        </Pressable>
-                    ))}
-                </View>
-            )}
+                                <View style={styles.filaSecundaria}>
+                                    <Text style={styles.metodo}>
+                                        {pago.metodoPago === 'EFECTIVO'
+                                            ? 'Efectivo'
+                                            : 'Transferencia'}
+                                    </Text>
 
-            <View style={styles.paginacion}>
-                <Pressable
-                    style={[
-                        styles.botonPagina,
-                        pagina <= 1 && styles.botonPaginaDeshabilitado,
-                    ]}
-                    disabled={pagina <= 1 || cargando}
-                    onPress={() => cambiarPagina(pagina - 1)}
-                >
-                    <Text style={styles.textoPagina}>Anterior</Text>
-                </Pressable>
+                                    <View
+                                        style={[
+                                            styles.estadoBadge,
+                                            pago.estado === 'ACTIVA'
+                                                ? styles.estadoActivo
+                                                : styles.estadoCancelado,
+                                        ]}
+                                    >
+                                        <Text
+                                            style={[
+                                                styles.textoEstado,
+                                                pago.estado === 'ACTIVA'
+                                                    ? styles.textoActivo
+                                                    : styles.textoCancelado,
+                                            ]}
+                                        >
+                                            {pago.estado === 'ACTIVA'
+                                                ? 'Activo'
+                                                : 'Cancelado'}
+                                        </Text>
+                                    </View>
+                                </View>
 
-                <Text style={styles.textoPaginacion}>
-                    {pagina} de {totalPaginas}
-                </Text>
+                                <View style={styles.filaInferior}>
+                                    <Text style={styles.usuario}>
+                                        Registró: {pago.usuario.nombre}
+                                    </Text>
+                                    <Text style={styles.verDetalle}>
+                                        Ver detalle ›
+                                    </Text>
+                                </View>
+                            </Pressable>
+                        ))}
+                    </View>
+                )}
 
-                <Pressable
-                    style={[
-                        styles.botonPagina,
-                        pagina >= totalPaginas &&
+                <View style={styles.paginacion}>
+                    <Pressable
+                        style={[
+                            styles.botonPagina,
+                            pagina <= 1 && styles.botonPaginaDeshabilitado,
+                        ]}
+                        disabled={pagina <= 1 || cargando}
+                        onPress={() => cambiarPagina(pagina - 1)}
+                    >
+                        <Text style={styles.textoPagina}>Anterior</Text>
+                    </Pressable>
+
+                    <Text style={styles.textoPaginacion}>
+                        {pagina} de {totalPaginas}
+                    </Text>
+
+                    <Pressable
+                        style={[
+                            styles.botonPagina,
+                            pagina >= totalPaginas &&
                             styles.botonPaginaDeshabilitado,
-                    ]}
-                    disabled={pagina >= totalPaginas || cargando}
-                    onPress={() => cambiarPagina(pagina + 1)}
-                >
-                    <Text style={styles.textoPagina}>Siguiente</Text>
-                </Pressable>
-            </View>
-        </ScrollView>
+                        ]}
+                        disabled={pagina >= totalPaginas || cargando}
+                        onPress={() => cambiarPagina(pagina + 1)}
+                    >
+                        <Text style={styles.textoPagina}>Siguiente</Text>
+                    </Pressable>
+                </View>
+            </ScrollView>
+        </SafeAreaView>
+
     );
 }
 

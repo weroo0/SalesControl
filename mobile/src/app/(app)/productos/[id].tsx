@@ -1,22 +1,19 @@
 import { useCallback, useState } from 'react';
-
+import { Alert, ScrollView, StyleSheet, View } from 'react-native';
 import {
-    useFocusEffect,
-    useLocalSearchParams,
-    useRouter,
+  ActivityIndicator,
+  Appbar,
+  Button,
+  Divider,
+  Icon,
+  Surface,
+  Text,
+} from 'react-native-paper';
+import {
+  useFocusEffect,
+  useLocalSearchParams,
+  useRouter,
 } from 'expo-router';
-
-import {
-    ActivityIndicator,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    Text,
-    View,
-    Alert
-} from 'react-native';
-
-import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useAuthenticatedRequest } from '@/hooks/useAuthenticatedRequest';
 import { productoService } from '@/services/producto.service';
@@ -25,449 +22,486 @@ import { ApiError } from '@/services/api';
 import type { Producto } from '@/types/producto.types';
 
 const monedaMXN = new Intl.NumberFormat('es-MX', {
-    style: 'currency',
-    currency: 'MXN',
+  style: 'currency',
+  currency: 'MXN',
 });
 
 function formatearPrecio(valor: string): string {
-    const numero = Number(valor);
+  const numero = Number(valor);
 
-    if (!Number.isFinite(numero)) {
-        return valor;
-    }
+  if (!Number.isFinite(numero)) {
+    return valor;
+  }
 
-    return monedaMXN.format(numero);
+  return monedaMXN.format(numero);
 }
 
 export default function ProductoDetalleScreen() {
-    const { id } = useLocalSearchParams<{ id: string }>();
+  const { id } = useLocalSearchParams<{ id: string }>();
 
-    const router = useRouter();
-    const request = useAuthenticatedRequest();
+  const router = useRouter();
+  const request = useAuthenticatedRequest();
 
-    const [producto, setProducto] = useState<Producto | null>(
-        null,
+  const [producto, setProducto] = useState<Producto | null>(null);
+
+  const [cargando, setCargando] = useState(true);
+  const [cambiandoEstado, setCambiandoEstado] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [recarga, setRecarga] = useState(0);
+
+  const cambiarEstado = () => {
+    if (!producto || cargando || cambiandoEstado) return;
+
+    const accion = producto.activo ? 'desactivar' : 'activar';
+
+    Alert.alert(
+      `${accion === 'desactivar' ? 'Desactivar' : 'Activar'} producto`,
+      `¿Estás seguro de que deseas ${accion} este producto?`,
+      [
+        {
+          text: 'Cancelar',
+          style: 'cancel',
+        },
+        {
+          text: 'Confirmar',
+          style: accion === 'desactivar' ? 'destructive' : 'default',
+          onPress: async () => {
+            try {
+              setCambiandoEstado(true);
+
+              const productoActualizado =
+                accion === 'desactivar'
+                  ? await productoService.desactivar(request, producto.id)
+                  : await productoService.activar(request, producto.id);
+
+              setProducto(productoActualizado);
+            } catch (err) {
+              if (err instanceof ApiError) {
+                if (err.status === 401) return;
+
+                Alert.alert(
+                  'Error',
+                  err.status === 403
+                    ? 'No tienes permisos para realizar esta acción.'
+                    : err.message
+                );
+              } else {
+                Alert.alert(
+                  'Error',
+                  'No se pudo actualizar el estado del producto.'
+                );
+              }
+            } finally {
+              setCambiandoEstado(false);
+            }
+          },
+        },
+      ]
     );
+  };
 
-    const [cargando, setCargando] = useState(true);
-    const [error, setError] = useState<string | null>(null);
-    const [recarga, setRecarga] = useState(0);
-    const [guardando, setGuardando] = useState(true);
+  useFocusEffect(
+    useCallback(() => {
+      let vigente = true;
 
-    const cambiarEstado = () => {
-        if (!producto || cargando) return;
+      async function cargarProducto() {
+        const productoId = Number(id);
 
-        const accion = producto.activo ? 'desactivar' : 'activar';
+        setCargando(true);
+        setError(null);
+        setProducto(null);
 
-        Alert.alert(
-            `${accion === 'desactivar' ? 'Desactivar' : 'Activar'} producto`,
-            `¿Estás seguro de que deseas ${accion} este producto?`,
-            [
-                {
-                    text: 'Cancelar',
-                    style: 'cancel',
-                },
-                {
-                    text: 'Confirmar',
-                    onPress: async () => {
-                        try {
-                            setCargando(true);
+        if (!Number.isSafeInteger(productoId) || productoId <= 0) {
+          setError('Identificador de producto inválido.');
+          setCargando(false);
+          return;
+        }
 
-                            const productoActualizado =
-                                accion === 'desactivar'
-                                    ? await productoService.desactivar(request, producto.id)
-                                    : await productoService.activar(request, producto.id);
+        try {
+          const resultado = await productoService.obtenerPorId(
+            request,
+            productoId
+          );
 
-                            setProducto(productoActualizado);
-                        } catch (error) {
-                            if (error instanceof ApiError) {
-                                if (error.status === 401) return;
+          if (vigente) {
+            setProducto(resultado);
+          }
+        } catch (err) {
+          if (!vigente) return;
 
-                                Alert.alert(
-                                    'Error',
-                                    error.status === 403
-                                        ? 'No tienes permisos para realizar esta acción.'
-                                        : error.message,
-                                );
-                            } else {
-                                Alert.alert('Error', 'No se pudo actualizar el estado del producto.');
-                            }
-                        } finally {
-                            setCargando(false);
-                        }
-                    },
-                },
-            ],
-        );
-    };
-
-    useFocusEffect(
-        useCallback(() => {
-            let vigente = true;
-
-            async function cargarProducto() {
-                const productoId = Number(id);
-
-                setCargando(true);
-                setError(null);
-                setProducto(null);
-
-                if (
-                    !Number.isSafeInteger(productoId) ||
-                    productoId <= 0
-                ) {
-                    setError('Identificador de producto inválido.');
-                    setCargando(false);
-                    return;
-                }
-
-                try {
-                    const resultado =
-                        await productoService.obtenerPorId(
-                            request,
-                            productoId,
-                        );
-
-                    if (vigente) {
-                        setProducto(resultado);
-                    }
-                } catch (err) {
-                    if (!vigente) return;
-
-                    if (err instanceof ApiError) {
-                        if (err.status === 401) {
-                            return;
-                        }
-
-                        if (err.status === 403) {
-                            setError(
-                                'No tienes permiso para consultar este producto.',
-                            );
-                        } else if (err.status === 404) {
-                            setError('El producto solicitado no existe.');
-                        } else {
-                            setError(err.message);
-                        }
-                    } else {
-                        setError(
-                            err instanceof Error
-                                ? err.message
-                                : 'No fue posible consultar el producto.',
-                        );
-                    }
-                } finally {
-                    if (vigente) {
-                        setCargando(false);
-                    }
-                }
+          if (err instanceof ApiError) {
+            if (err.status === 401) {
+              return;
             }
 
-            void cargarProducto();
+            if (err.status === 403) {
+              setError('No tienes permiso para consultar este producto.');
+            } else if (err.status === 404) {
+              setError('El producto solicitado no existe.');
+            } else {
+              setError(err.message);
+            }
+          } else {
+            setError(
+              err instanceof Error
+                ? err.message
+                : 'No fue posible consultar el producto.'
+            );
+          }
+        } finally {
+          if (vigente) {
+            setCargando(false);
+          }
+        }
+      }
 
-            return () => {
-                vigente = false;
-            };
-        }, [id, request, recarga]),
-    );
+      void cargarProducto();
 
-    return (
-        <SafeAreaView style={styles.container}>
-            <View style={styles.header}>
-                <Pressable onPress={() => router.back()}>
-                    <Text style={styles.back}>← Volver</Text>
-                </Pressable>
+      return () => {
+        vigente = false;
+      };
+    }, [id, request, recarga])
+  );
 
-                <Text style={styles.title}>
-                    Detalle del producto
-                </Text>
+  return (
+    <View style={styles.container}>
+      <Appbar.Header elevated style={styles.appbar}>
+        <Appbar.BackAction onPress={() => router.back()} />
+        <Appbar.Content
+          title="Detalle del producto"
+          titleStyle={styles.appbarTitle}
+        />
+        <Appbar.Action
+          icon="refresh"
+          accessibilityLabel="Actualizar información"
+          disabled={cargando || cambiandoEstado}
+          onPress={() => setRecarga((actual) => actual + 1)}
+        />
+      </Appbar.Header>
 
-                <Pressable
-                    style={[
-                        styles.refreshButton,
-                        cargando && styles.disabled,
-                    ]}
-                    disabled={cargando}
-                    onPress={() =>
-                        setRecarga((actual) => actual + 1)
-                    }
-                >
-                    <Text style={styles.buttonText}>
-                        Actualizar información
-                    </Text>
-                </Pressable>
+      {cargando ? (
+        <View style={styles.center}>
+          <ActivityIndicator size="large" />
+          <Text variant="bodyMedium" style={styles.mutedText}>
+            Consultando producto...
+          </Text>
+        </View>
+      ) : error ? (
+        <View style={styles.center}>
+          <Icon source="alert-circle-outline" size={44} color="#DC2626" />
+          <Text variant="bodyMedium" style={styles.errorText}>
+            {error}
+          </Text>
+          <Button
+            mode="contained"
+            icon="refresh"
+            onPress={() => setRecarga((actual) => actual + 1)}
+          >
+            Reintentar
+          </Button>
+        </View>
+      ) : producto ? (
+        <ScrollView contentContainerStyle={styles.content}>
+          <View style={styles.heroHeader}>
+            <View
+              style={[
+                styles.heroIconCircle,
+                !producto.activo && styles.heroIconCircleInactive,
+              ]}
+            >
+              <Icon
+                source="tag-outline"
+                size={36}
+                color={producto.activo ? '#7C3AED' : '#64748B'}
+              />
             </View>
 
-            {cargando ? (
-                <View style={styles.center}>
-                    <ActivityIndicator
-                        size="large"
-                        color="#2563EB"
-                    />
+            <View style={styles.idPill}>
+              <Text style={styles.idPillText}>#{producto.id}</Text>
+            </View>
 
-                    <Text style={styles.secondaryText}>
-                        Consultando producto...
-                    </Text>
-                </View>
-            ) : error ? (
-                <View style={styles.center}>
-                    <Text style={styles.error}>
-                        {error}
-                    </Text>
+            <Text variant="headlineSmall" style={styles.productName}>
+              {producto.nombre}
+            </Text>
 
-                    <Pressable
-                        style={styles.refreshButton}
-                        onPress={() =>
-                            setRecarga((actual) => actual + 1)
-                        }
-                    >
-                        <Text style={styles.buttonText}>
-                            Reintentar
-                        </Text>
-                    </Pressable>
-                </View>
-            ) : producto ? (
-                <ScrollView
-                    contentContainerStyle={styles.content}
-                >
-                    <View style={styles.card}>
-                        <Text style={styles.label}>
-                            Nombre del producto
-                        </Text>
+            <View
+              style={[
+                styles.statusBadge,
+                producto.activo ? styles.badgeActivo : styles.badgeInactivo,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.statusBadge,
+                  producto.activo
+                    ? styles.badgeActivoText
+                    : styles.badgeInactivoText,
+                ]}
+              >
+                {producto.activo ? 'Activo' : 'Inactivo'}
+              </Text>
+            </View>
+          </View>
 
-                        <Text style={styles.productName}>
-                            {producto.nombre}
-                        </Text>
+          <Surface elevation={1} style={styles.infoCard}>
+            <View style={styles.priceBanner}>
+              <Text variant="titleMedium" style={styles.priceBannerLabel}>
+                Precio de venta:{' '}
+                <Text style={styles.priceBannerValue}>
+                  {formatearPrecio(producto.precio)}
+                </Text>
+              </Text>
+            </View>
 
-                        <Text style={styles.productId}>
-                            Producto #{producto.id}
-                        </Text>
+            <View style={styles.categoryRow}>
+              <View style={styles.categoryIconBox}>
+                <Icon
+                  source="shape-outline"
+                  size={20}
+                  color="#475569"
+                />
+              </View>
 
-                        <View style={styles.divider} />
+              <View style={styles.categoryTextWrapper}>
+                <Text variant="bodyLarge" style={styles.categoryText}>
+                  Categoría:{' '}
+                  <Text style={styles.categoryBold}>
+                    {producto.categoria?.nombre ?? 'Sin nombre disponible'}
+                  </Text>{' '}
+                  <Text style={styles.categoryIdText}>
+                    (ID: {producto.categoriaId})
+                  </Text>
+                </Text>
+                <Divider style={styles.categoryUnderline} />
+              </View>
+            </View>
+          </Surface>
 
-                        <Text style={styles.label}>
-                            Precio de venta
-                        </Text>
+          <View style={styles.actionsStack}>
+            <Button
+              mode="contained"
+              icon="pencil-outline"
+              disabled={cambiandoEstado}
+              contentStyle={styles.actionButtonContent}
+              style={styles.editButton}
+              labelStyle={styles.editButtonLabel}
+              onPress={() =>
+                router.push({
+                  pathname: '/productos/[id]/editar',
+                  params: {
+                    id: String(producto.id),
+                  },
+                })
+              }
+            >
+              Editar producto
+            </Button>
 
-                        <Text style={styles.price}>
-                            {formatearPrecio(producto.precio)}
-                        </Text>
-
-                        <View style={styles.divider} />
-
-                        <Text style={styles.label}>
-                            Estado
-                        </Text>
-
-                        <Text
-                            style={
-                                producto.activo
-                                    ? styles.active
-                                    : styles.inactive
-                            }
-                        >
-                            {producto.activo
-                                ? 'Activo'
-                                : 'Inactivo'}
-                        </Text>
-
-                        <Pressable
-                            style={styles.editButton}
-                            onPress={() =>
-                                router.push({
-                                    pathname: '/productos/[id]/editar',
-                                    params: {
-                                        id: String(producto.id),
-                                    },
-                                })
-                            }
-                        >
-                            <Text style={styles.editButtonText}>
-                                Editar producto
-                            </Text>
-                        </Pressable>
-
-                        <Pressable
-                            style={[
-                                styles.statusButton,
-                                producto.activo ? styles.desactivateButton : styles.activateButton,
-                            ]}
-                            onPress={cambiarEstado}
-                            disabled={cargando}
-                        >
-                            {cargando ? (
-                                <ActivityIndicator color="#FFFFFF" />
-                            ) : (
-                                <Text style={styles.statusButtonText}>
-                                    {producto.activo ? 'Desactivar producto' : 'Activar producto'}
-                                </Text>
-                            )}
-                        </Pressable>
-                    </View>
-
-                    <View style={styles.card}>
-                        <Text style={styles.sectionTitle}>
-                            Categoría
-                        </Text>
-
-                        <Text style={styles.value}>
-                            {producto.categoria?.nombre ??
-                                'Categoría sin nombre disponible'}
-                        </Text>
-
-                        <Text style={styles.secondaryText}>
-                            ID de categoría: {producto.categoriaId}
-                        </Text>
-                    </View>
-                </ScrollView>
-            ) : (
-                <View style={styles.center}>
-                    <Text style={styles.secondaryText}>
-                        No hay información disponible.
-                    </Text>
-                </View>
-            )}
-        </SafeAreaView>
-    );
+            <Button
+              mode="outlined"
+              icon={
+                producto.activo
+                  ? 'cancel'
+                  : 'check-circle-outline'
+              }
+              loading={cambiandoEstado}
+              disabled={cambiandoEstado}
+              textColor={producto.activo ? '#DC2626' : '#16845D'}
+              contentStyle={styles.actionButtonContent}
+              style={[
+                styles.statusButton,
+                producto.activo
+                  ? styles.desactivarOutline
+                  : styles.activarOutline,
+              ]}
+              labelStyle={styles.statusButtonLabel}
+              onPress={cambiarEstado}
+            >
+              {producto.activo
+                ? 'Desactivar producto'
+                : 'Activar producto'}
+            </Button>
+          </View>
+        </ScrollView>
+      ) : (
+        <View style={styles.center}>
+          <Text variant="bodyMedium" style={styles.mutedText}>
+            No hay información disponible.
+          </Text>
+        </View>
+      )}
+    </View>
+  );
 }
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: '#F5F7FA',
-    },
-    header: {
-        padding: 20,
-        gap: 14,
-    },
-    back: {
-        color: '#2563EB',
-        fontSize: 16,
-        fontWeight: '600',
-    },
-    title: {
-        fontSize: 26,
-        fontWeight: '700',
-        color: '#162033',
-    },
-    refreshButton: {
-        backgroundColor: '#2563EB',
-        borderRadius: 10,
-        padding: 14,
-        alignItems: 'center',
-    },
-    buttonText: {
-        color: '#FFFFFF',
-        fontSize: 14,
-        fontWeight: '600',
-    },
-    disabled: {
-        opacity: 0.5,
-    },
-    content: {
-        padding: 20,
-        paddingBottom: 32,
-        gap: 16,
-        flexGrow: 1,
-    },
-    card: {
-        backgroundColor: '#FFFFFF',
-        borderRadius: 12,
-        borderWidth: 1,
-        borderColor: '#E2E8F0',
-        padding: 20,
-        gap: 12,
-    },
-    label: {
-        fontSize: 13,
-        color: '#64748B',
-    },
-    productName: {
-        fontSize: 23,
-        fontWeight: '700',
-        color: '#162033',
-    },
-    productId: {
-        fontSize: 13,
-        color: '#64748B',
-    },
-    price: {
-        fontSize: 28,
-        fontWeight: '700',
-        color: '#162033',
-    },
-    sectionTitle: {
-        fontSize: 18,
-        fontWeight: '700',
-        color: '#162033',
-    },
-    value: {
-        fontSize: 16,
-        color: '#162033',
-        fontWeight: '600',
-    },
-    secondaryText: {
-        fontSize: 14,
-        color: '#64748B',
-    },
-    divider: {
-        height: 1,
-        backgroundColor: '#E2E8F0',
-        marginVertical: 4,
-    },
-    active: {
-        color: '#16845D',
-        fontSize: 15,
-        fontWeight: '600',
-    },
-    inactive: {
-        color: '#DC2626',
-        fontSize: 15,
-        fontWeight: '600',
-    },
-    center: {
-        flex: 1,
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: 16,
-        padding: 24,
-    },
-    error: {
-        fontSize: 14,
-        color: '#DC2626',
-        textAlign: 'center',
-    },
-    editButton: {
-        backgroundColor: '#2563EB',
-        padding: 14,
-        borderRadius: 10,
-        alignItems: 'center',
-        marginTop: 12,
-    },
-
-    editButtonText: {
-        color: '#FFFFFF',
-        fontSize: 15,
-        fontWeight: '600',
-    },
-
-    statusButton: {
-        padding: 15,
-        borderRadius: 10,
-        alignItems: 'center',
-        marginTop: 12,
-    },
-
-    desactivateButton: {
-        backgroundColor: '#DC2626',
-    },
-
-    activateButton: {
-        backgroundColor: '#16A34A',
-    },
-
-    statusButtonText: {
-        color: '#FFFFFF',
-        fontWeight: '600',
-        fontSize: 15,
-    },
+  container: {
+    flex: 1,
+    backgroundColor: '#F5F7FA',
+  },
+  appbar: {
+    backgroundColor: '#FFFFFF',
+  },
+  appbarTitle: {
+    fontWeight: '700',
+    color: '#162033',
+  },
+  content: {
+    padding: 20,
+    paddingBottom: 32,
+    gap: 20,
+  },
+  heroHeader: {
+    alignItems: 'center',
+    paddingTop: 8,
+    gap: 10,
+  },
+  heroIconCircle: {
+    width: 78,
+    height: 78,
+    borderRadius: 39,
+    backgroundColor: '#EDE9FE',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  heroIconCircleInactive: {
+    backgroundColor: '#E2E8F0',
+  },
+  idPill: {
+    backgroundColor: '#E2E8F0',
+    paddingHorizontal: 12,
+    paddingVertical: 3,
+    borderRadius: 12,
+  },
+  idPillText: {
+    color: '#334155',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  productName: {
+    fontWeight: '700',
+    color: '#162033',
+    textAlign: 'center',
+  },
+  statusBadge: {
+    paddingHorizontal: 14,
+    paddingVertical: 4,
+    borderRadius: 14,
+  },
+  badgeActivo: {
+    backgroundColor: '#DCFCE7',
+  },
+  badgeActivoText: {
+    color: '#15803D',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  badgeInactivo: {
+    backgroundColor: '#FEE2E2',
+  },
+  badgeInactivoText: {
+    color: '#DC2626',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  infoCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 18,
+    padding: 16,
+    gap: 16,
+  },
+  priceBanner: {
+    backgroundColor: '#ECFDF5',
+    borderRadius: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+  },
+  priceBannerLabel: {
+    color: '#162033',
+    fontWeight: '600',
+  },
+  priceBannerValue: {
+    fontWeight: '800',
+    fontSize: 20,
+    color: '#162033',
+  },
+  categoryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingHorizontal: 4,
+    paddingBottom: 4,
+  },
+  categoryIconBox: {
+    width: 34,
+    height: 34,
+    borderRadius: 8,
+    backgroundColor: '#F1F5F9',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  categoryTextWrapper: {
+    flex: 1,
+    gap: 8,
+  },
+  categoryText: {
+    color: '#1E293B',
+  },
+  categoryBold: {
+    fontWeight: '700',
+    color: '#162033',
+  },
+  categoryIdText: {
+    color: '#64748B',
+    fontSize: 14,
+  },
+  categoryUnderline: {
+    backgroundColor: '#E2E8F0',
+  },
+  actionsStack: {
+    gap: 12,
+    marginTop: 4,
+  },
+  actionButtonContent: {
+    paddingVertical: 6,
+  },
+  editButton: {
+    borderRadius: 24,
+    backgroundColor: '#1E3A8A',
+  },
+  editButtonLabel: {
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  statusButton: {
+    borderRadius: 24,
+    borderWidth: 1.5,
+    backgroundColor: '#FFFFFF',
+  },
+  statusButtonLabel: {
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  desactivarOutline: {
+    borderColor: '#DC2626',
+  },
+  activarOutline: {
+    borderColor: '#16845D',
+  },
+  center: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 14,
+    padding: 24,
+  },
+  mutedText: {
+    color: '#64748B',
+    textAlign: 'center',
+  },
+  errorText: {
+    color: '#DC2626',
+    textAlign: 'center',
+  },
 });

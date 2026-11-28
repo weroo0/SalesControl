@@ -9,17 +9,22 @@ import {
     TextInput,
     View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import {
+    Appbar,
+    FAB,
+    List,
+    Surface,
+} from 'react-native-paper';
 import { useFocusEffect, useRouter } from 'expo-router';
 
 import { useAuthenticatedRequest } from '@/hooks/useAuthenticatedRequest';
 import { ventaService } from '@/services/venta.service';
 
 import type {
+    EstadoVenta,
     FiltrosVentas,
     PaginaVentas,
     TipoVenta,
-    EstadoVenta,
     VentaListado,
 } from '@/types/venta.types';
 
@@ -47,8 +52,8 @@ export default function VentasScreen() {
     const [error, setError] = useState<string | null>(null);
 
     const [pagina, setPagina] = useState(1);
+    const [filtrosAbiertos, setFiltrosAbiertos] = useState(false);
 
-    // Filtros que el usuario está editando.
     const [clienteIdTexto, setClienteIdTexto] = useState('');
     const [usuarioIdTexto, setUsuarioIdTexto] = useState('');
     const [fechaDesdeTexto, setFechaDesdeTexto] = useState('');
@@ -58,7 +63,6 @@ export default function VentasScreen() {
     const [estadoSeleccionado, setEstadoSeleccionado] =
         useState<EstadoVenta | undefined>();
 
-    // Filtros que realmente se envían al backend.
     const [filtros, setFiltros] = useState<Omit<FiltrosVentas, 'page' | 'limit'>>({});
 
     const cargarVentas = useCallback(async (refrescar = false) => {
@@ -154,6 +158,7 @@ export default function VentasScreen() {
             fechaDesde,
             fechaHasta,
         });
+        setFiltrosAbiertos(false);
     };
 
     const limpiarFiltros = () => {
@@ -173,6 +178,28 @@ export default function VentasScreen() {
             pathname: '/ventas/[id]',
             params: { id: String(venta.id) },
         });
+    };
+
+    const resumenFiltros = () => {
+        const partes: string[] = [];
+
+        if (filtros.tipoVenta) {
+            partes.push(filtros.tipoVenta === 'FIADO' ? 'Fiado' : 'Contado');
+        }
+        if (filtros.estado) {
+            partes.push(filtros.estado === 'ACTIVA' ? 'Activas' : 'Canceladas');
+        }
+        if (filtros.clienteId) {
+            partes.push(`Cliente #${filtros.clienteId}`);
+        }
+        if (filtros.usuarioId) {
+            partes.push(`Vendedor #${filtros.usuarioId}`);
+        }
+        if (filtros.fechaDesde || filtros.fechaHasta) {
+            partes.push('Con rango de fechas');
+        }
+
+        return partes.length > 0 ? partes.join(' • ') : 'Todos los registros';
     };
 
     const renderVenta = ({ item }: { item: VentaListado }) => (
@@ -223,27 +250,27 @@ export default function VentasScreen() {
     );
 
     return (
-        <SafeAreaView style={styles.container}>
-            <View style={styles.header}>
-                <View>
-                    <Text style={styles.titulo}>Ventas</Text>
-                    <Text style={styles.subtitulo}>
-                        Historial de ventas registradas
-                    </Text>
-                </View>
-
-                <Pressable
-                    style={styles.botonNuevo}
-                    onPress={() => router.push('/ventas/nueva')}
-                >
-                    <Text style={styles.botonNuevoTexto}>+ Nueva</Text>
-                </Pressable>
-            </View>
+        <View style={styles.container}>
+            <Appbar.Header elevated style={styles.appbar}>
+                <Appbar.BackAction onPress={() => router.back()} />
+                <Appbar.Content
+                    title="Ventas"
+                    subtitle="Historial de ventas registradas"
+                    titleStyle={styles.tituloAppbar}
+                />
+                <Appbar.Action
+                    icon="refresh"
+                    accessibilityLabel="Actualizar ventas"
+                    disabled={cargando || actualizando}
+                    onPress={() => void cargarVentas(true)}
+                />
+            </Appbar.Header>
 
             <FlatList
                 data={resultado?.data ?? []}
                 keyExtractor={(item) => String(item.id)}
                 renderItem={renderVenta}
+                keyboardShouldPersistTaps="handled"
                 refreshControl={
                     <RefreshControl
                         refreshing={actualizando}
@@ -251,105 +278,124 @@ export default function VentasScreen() {
                     />
                 }
                 ListHeaderComponent={
-                    <View style={styles.filtros}>
-                        <Text style={styles.seccionTitulo}>Filtros</Text>
+                    <Surface elevation={1} style={styles.accordionCard}>
+                        <List.Accordion
+                            title="Filtros"
+                            description={resumenFiltros()}
+                            expanded={filtrosAbiertos}
+                            onPress={() =>
+                                setFiltrosAbiertos((actual) => !actual)
+                            }
+                            left={(props) => (
+                                <List.Icon
+                                    {...props}
+                                    icon="filter-variant"
+                                    color="#2563EB"
+                                />
+                            )}
+                            style={styles.accordionHeader}
+                            titleStyle={styles.seccionTitulo}
+                            descriptionStyle={styles.accordionDescription}
+                        >
+                            <View style={styles.filtros}>
+                                <TextInput
+                                    style={styles.input}
+                                    placeholder="ID del cliente"
+                                    keyboardType="number-pad"
+                                    value={clienteIdTexto}
+                                    onChangeText={setClienteIdTexto}
+                                />
 
-                        <TextInput
-                            style={styles.input}
-                            placeholder="ID del cliente"
-                            keyboardType="number-pad"
-                            value={clienteIdTexto}
-                            onChangeText={setClienteIdTexto}
-                        />
+                                <TextInput
+                                    style={styles.input}
+                                    placeholder="ID del vendedor"
+                                    keyboardType="number-pad"
+                                    value={usuarioIdTexto}
+                                    onChangeText={setUsuarioIdTexto}
+                                />
 
-                        <TextInput
-                            style={styles.input}
-                            placeholder="ID del vendedor"
-                            keyboardType="number-pad"
-                            value={usuarioIdTexto}
-                            onChangeText={setUsuarioIdTexto}
-                        />
+                                <Text style={styles.etiqueta}>Tipo de venta</Text>
+                                <View style={styles.opciones}>
+                                    <Opcion
+                                        texto="Todos"
+                                        activa={!tipoSeleccionado}
+                                        onPress={() => setTipoSeleccionado(undefined)}
+                                    />
+                                    <Opcion
+                                        texto="Fiado"
+                                        activa={tipoSeleccionado === 'FIADO'}
+                                        onPress={() => setTipoSeleccionado('FIADO')}
+                                    />
+                                    <Opcion
+                                        texto="Contado"
+                                        activa={tipoSeleccionado === 'CONTADO'}
+                                        onPress={() => setTipoSeleccionado('CONTADO')}
+                                    />
+                                </View>
 
-                        <Text style={styles.etiqueta}>Tipo de venta</Text>
-                        <View style={styles.opciones}>
-                            <Opcion
-                                texto="Todos"
-                                activa={!tipoSeleccionado}
-                                onPress={() => setTipoSeleccionado(undefined)}
-                            />
-                            <Opcion
-                                texto="Fiado"
-                                activa={tipoSeleccionado === 'FIADO'}
-                                onPress={() => setTipoSeleccionado('FIADO')}
-                            />
-                            <Opcion
-                                texto="Contado"
-                                activa={tipoSeleccionado === 'CONTADO'}
-                                onPress={() => setTipoSeleccionado('CONTADO')}
-                            />
-                        </View>
+                                <Text style={styles.etiqueta}>Estado</Text>
+                                <View style={styles.opciones}>
+                                    <Opcion
+                                        texto="Todos"
+                                        activa={!estadoSeleccionado}
+                                        onPress={() => setEstadoSeleccionado(undefined)}
+                                    />
+                                    <Opcion
+                                        texto="Activas"
+                                        activa={estadoSeleccionado === 'ACTIVA'}
+                                        onPress={() => setEstadoSeleccionado('ACTIVA')}
+                                    />
+                                    <Opcion
+                                        texto="Canceladas"
+                                        activa={estadoSeleccionado === 'CANCELADA'}
+                                        onPress={() => setEstadoSeleccionado('CANCELADA')}
+                                    />
+                                </View>
 
-                        <Text style={styles.etiqueta}>Estado</Text>
-                        <View style={styles.opciones}>
-                            <Opcion
-                                texto="Todos"
-                                activa={!estadoSeleccionado}
-                                onPress={() => setEstadoSeleccionado(undefined)}
-                            />
-                            <Opcion
-                                texto="Activas"
-                                activa={estadoSeleccionado === 'ACTIVA'}
-                                onPress={() => setEstadoSeleccionado('ACTIVA')}
-                            />
-                            <Opcion
-                                texto="Canceladas"
-                                activa={estadoSeleccionado === 'CANCELADA'}
-                                onPress={() => setEstadoSeleccionado('CANCELADA')}
-                            />
-                        </View>
-
-                        <Text style={styles.etiqueta}>
-                            Fecha desde (YYYY-MM-DD)
-                        </Text>
-                        <TextInput
-                            style={styles.input}
-                            placeholder="2026-11-01"
-                            value={fechaDesdeTexto}
-                            onChangeText={setFechaDesdeTexto}
-                            autoCapitalize="none"
-                        />
-
-                        <Text style={styles.etiqueta}>
-                            Fecha hasta (YYYY-MM-DD)
-                        </Text>
-                        <TextInput
-                            style={styles.input}
-                            placeholder="2026-11-30"
-                            value={fechaHastaTexto}
-                            onChangeText={setFechaHastaTexto}
-                            autoCapitalize="none"
-                        />
-
-                        <View style={styles.botonesFiltros}>
-                            <Pressable
-                                style={styles.botonAplicar}
-                                onPress={aplicarFiltros}
-                            >
-                                <Text style={styles.botonAplicarTexto}>
-                                    Aplicar filtros
+                                <Text style={styles.etiqueta}>
+                                    Fecha desde (YYYY-MM-DD)
                                 </Text>
-                            </Pressable>
+                                <TextInput
+                                    style={styles.input}
+                                    placeholder="2026-11-01"
+                                    value={fechaDesdeTexto}
+                                    onChangeText={setFechaDesdeTexto}
+                                    autoCapitalize="none"
+                                />
 
-                            <Pressable
-                                style={styles.botonLimpiar}
-                                onPress={limpiarFiltros}
-                            >
-                                <Text style={styles.botonLimpiarTexto}>
-                                    Limpiar
+                                <Text style={styles.etiqueta}>
+                                    Fecha hasta (YYYY-MM-DD)
                                 </Text>
-                            </Pressable>
-                        </View>
-                    </View>
+                                <TextInput
+                                    style={styles.input}
+                                    placeholder="2026-11-30"
+                                    value={fechaHastaTexto}
+                                    onChangeText={setFechaHastaTexto}
+                                    autoCapitalize="none"
+                                />
+
+                                <View style={styles.botonesFiltros}>
+                                    <Pressable
+                                        style={styles.botonAplicar}
+                                        onPress={aplicarFiltros}
+                                    >
+                                        <Text style={styles.botonAplicarTexto}>
+                                            Aplicar filtros
+                                        </Text>
+                                    </Pressable>
+
+                                    <Pressable
+                                        style={styles.botonLimpiar}
+                                        onPress={limpiarFiltros}
+                                    >
+                                        <Text style={styles.botonLimpiarTexto}>
+                                            Limpiar
+                                        </Text>
+                                    </Pressable>
+                                </View>
+                            </View>
+                        </List.Accordion>
+                    </Surface>
                 }
                 ListEmptyComponent={
                     <View style={styles.vacio}>
@@ -414,7 +460,15 @@ export default function VentasScreen() {
                     <Text style={styles.errorTexto}>{error}</Text>
                 </View>
             )}
-        </SafeAreaView>
+
+            <FAB
+                icon="plus"
+                label="Nueva venta"
+                color="#FFFFFF"
+                style={styles.fab}
+                onPress={() => router.push('/ventas/nueva')}
+            />
+        </View>
     );
 }
 
@@ -452,47 +506,42 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: '#F5F6FA',
     },
-    header: {
-        paddingHorizontal: 20,
-        paddingVertical: 16,
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
+    appbar: {
+        backgroundColor: '#FFFFFF',
     },
-    titulo: {
-        fontSize: 25,
+    tituloAppbar: {
         fontWeight: '700',
         color: '#172033',
     },
-    subtitulo: {
-        color: '#697386',
-        marginTop: 4,
-    },
-    botonNuevo: {
-        backgroundColor: '#2563EB',
-        paddingHorizontal: 16,
-        paddingVertical: 11,
-        borderRadius: 10,
-    },
-    botonNuevoTexto: {
-        color: '#FFFFFF',
-        fontWeight: '700',
-    },
     lista: {
         paddingHorizontal: 16,
-        paddingBottom: 30,
+        paddingTop: 14,
+        paddingBottom: 92,
     },
     listaHeader: {
         marginBottom: 14,
     },
-    filtros: {
+    accordionCard: {
         backgroundColor: '#FFFFFF',
         borderRadius: 14,
-        padding: 16,
+        overflow: 'hidden',
+    },
+    accordionHeader: {
+        backgroundColor: '#FFFFFF',
+    },
+    accordionDescription: {
+        color: '#64748B',
+        fontSize: 12,
+    },
+    filtros: {
+        backgroundColor: '#FFFFFF',
+        paddingHorizontal: 16,
+        paddingBottom: 16,
+        paddingTop: 4,
         gap: 10,
     },
     seccionTitulo: {
-        fontSize: 17,
+        fontSize: 16,
         fontWeight: '700',
         color: '#172033',
     },
@@ -662,5 +711,12 @@ const styles = StyleSheet.create({
     },
     errorTexto: {
         color: '#991B1B',
+    },
+    fab: {
+        position: 'absolute',
+        right: 18,
+        bottom: 20,
+        backgroundColor: '#2563EB',
+        borderRadius: 16,
     },
 });

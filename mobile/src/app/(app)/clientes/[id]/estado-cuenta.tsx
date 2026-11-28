@@ -1,594 +1,657 @@
-import { useCallback, useState } from 'react';
-
+import { useCallback, useMemo, useState } from 'react';
+import { FlatList, StyleSheet, View } from 'react-native';
 import {
-    useFocusEffect,
-    useLocalSearchParams,
-    useRouter,
+  ActivityIndicator,
+  Appbar,
+  Avatar,
+  Button,
+  Divider,
+  Icon,
+  List,
+  ProgressBar,
+  SegmentedButtons,
+  Surface,
+  Text,
+} from 'react-native-paper';
+import {
+  useFocusEffect,
+  useLocalSearchParams,
+  useRouter,
 } from 'expo-router';
-
-import {
-    ActivityIndicator,
-    FlatList,
-    Pressable,
-    StyleSheet,
-    Text,
-    View,
-} from 'react-native';
-
-import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useAuthenticatedRequest } from '@/hooks/useAuthenticatedRequest';
 import { clienteService } from '@/services/cliente.service';
 import { ApiError } from '@/services/api';
 
 import type {
-    EstadoCuentaResponse,
-    MovimientoEstadoCuenta,
+  EstadoCuentaResponse,
+  MovimientoEstadoCuenta,
 } from '@/types/estado-cuenta.types';
 
+type FiltroMovimiento = 'TODOS' | 'VENTA' | 'PAGO';
+
 const monedaMXN = new Intl.NumberFormat('es-MX', {
-    style: 'currency',
-    currency: 'MXN',
+  style: 'currency',
+  currency: 'MXN',
 });
 
-function formatearDinero(valor: string): string {
-    const numero = Number(valor);
+function formatearDinero(valor: string | number): string {
+  const numero = typeof valor === 'number' ? valor : Number(valor);
 
-    if (!Number.isFinite(numero)) {
-        return valor;
-    }
+  if (!Number.isFinite(numero)) {
+    return String(valor);
+  }
 
-    return monedaMXN.format(numero);
+  return monedaMXN.format(numero);
 }
 
 function formatearFecha(valor: string): string {
-    const fecha = new Date(valor);
+  const fecha = new Date(valor);
 
-    if (Number.isNaN(fecha.getTime())) {
-        return valor;
-    }
+  if (Number.isNaN(fecha.getTime())) {
+    return valor;
+  }
 
-    return fecha.toLocaleString('es-MX', {
-        day: '2-digit',
-        month: 'short',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-        timeZone: 'America/Mexico_City',
-    });
+  return fecha.toLocaleString('es-MX', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone: 'America/Mexico_City',
+  });
 }
 
-function MovimientoCard({
-    movimiento,
+function obtenerIniciales(nombre: string): string {
+  const partes = nombre.trim().split(/\s+/);
+  if (partes.length === 0) return '?';
+  if (partes.length === 1) return partes[0].slice(0, 2).toUpperCase();
+  return `${partes[0][0]}${partes[1][0]}`.toUpperCase();
+}
+
+function MovimientoAccordion({
+  movimiento,
+  expandido,
+  onToggle,
 }: {
-    movimiento: MovimientoEstadoCuenta;
+  movimiento: MovimientoEstadoCuenta;
+  expandido: boolean;
+  onToggle: () => void;
 }) {
-    const esVenta = movimiento.tipo === 'VENTA';
+  const esVenta = movimiento.tipo === 'VENTA';
+  const montoFormateado = esVenta
+    ? formatearDinero(movimiento.monto)
+    : `-${formatearDinero(movimiento.monto)}`;
 
-    return (
-        <View style={styles.movementCard}>
-            <View style={styles.movementHeader}>
-                <View style={styles.movementInfo}>
-                    <Text
-                        style={[
-                            styles.movementTitle,
-                            !esVenta && styles.paymentText,
-                        ]}
-                    >
-                        {esVenta ? 'Venta' : 'Pago'} #{movimiento.id}
-                    </Text>
-
-                    <Text style={styles.secondaryText}>
-                        {formatearFecha(movimiento.fecha)}
-                    </Text>
-                </View>
-
+  return (
+    <Surface elevation={1} style={styles.accordionCard}>
+      <List.Accordion
+        expanded={expandido}
+        onPress={onToggle}
+        style={styles.accordionHeader}
+        titleStyle={styles.movementTitle}
+        descriptionStyle={styles.accordionDescription}
+        title={`${esVenta ? 'Venta' : 'Pago'} #${movimiento.id}`}
+        description={formatearFecha(movimiento.fecha)}
+        left={(props) => (
+          <View
+            {...props}
+            style={[
+              styles.iconCircle,
+              esVenta ? styles.ventaIconBg : styles.pagoIconBg,
+            ]}
+          >
+            <Icon
+              source={esVenta ? 'cart-outline' : 'cash'}
+              size={20}
+              color={esVenta ? '#1E293B' : '#16845D'}
+            />
+          </View>
+        )}
+        right={() => (
+          <View style={styles.accordionRight}>
+            <Text
+              variant="titleSmall"
+              style={[
+                styles.movementAmount,
+                !esVenta && styles.paymentText,
+              ]}
+            >
+              {montoFormateado}
+            </Text>
+            <Icon
+              source={expandido ? 'chevron-up' : 'chevron-down'}
+              size={22}
+              color="#64748B"
+            />
+          </View>
+        )}
+      >
+        <View style={styles.expandedBody}>
+          {movimiento.tipo === 'VENTA' ? (
+            <View style={styles.expandedDetails}>
+              {movimiento.detalle.map((detalle, indice) => (
                 <Text
-                    style={[
-                        styles.movementAmount,
-                        !esVenta && styles.paymentText,
-                    ]}
+                  key={`${detalle.producto.id}-${indice}`}
+                  variant="bodyMedium"
+                  style={styles.detailText}
                 >
-                    {formatearDinero(movimiento.monto)}
+                  {detalle.producto.nombre} ({detalle.cantidad} ×{' '}
+                  {formatearDinero(detalle.precioUnitario)} • Subtotal:{' '}
+                  {formatearDinero(detalle.subtotal)})
                 </Text>
+              ))}
             </View>
-
-            <View style={styles.divider} />
-
-            {movimiento.tipo === 'VENTA' ? (
-                <View style={styles.details}>
-                    <Text style={styles.sectionLabel}>
-                        Productos vendidos
-                    </Text>
-
-                    {movimiento.detalle.map((detalle, indice) => (
-                        <View
-                            key={`${detalle.producto.id}-${indice}`}
-                            style={styles.productRow}
-                        >
-                            <Text style={styles.productName}>
-                                {detalle.producto.nombre}
-                            </Text>
-
-                            <Text style={styles.secondaryText}>
-                                {detalle.cantidad} ×{' '}
-                                {formatearDinero(detalle.precioUnitario)}
-                            </Text>
-
-                            <Text style={styles.value}>
-                                Subtotal: {formatearDinero(detalle.subtotal)}
-                            </Text>
-                        </View>
-                    ))}
-                </View>
-            ) : (
-                <View style={styles.details}>
-                    <Text style={styles.sectionLabel}>
-                        Información del pago
-                    </Text>
-
-                    <Text style={styles.value}>
-                        Método: {movimiento.metodoPago}
-                    </Text>
-
-                    {movimiento.notas ? (
-                        <Text style={styles.secondaryText}>
-                            Notas: {movimiento.notas}
-                        </Text>
-                    ) : null}
-                </View>
-            )}
-
-            <View style={styles.divider} />
-
-            <View style={styles.balanceRow}>
-                <Text style={styles.secondaryText}>
-                    Saldo después del movimiento
+          ) : (
+            <View style={styles.expandedDetails}>
+              <Text variant="bodyMedium" style={styles.detailText}>
+                Método: {movimiento.metodoPago}
+              </Text>
+              {movimiento.notas ? (
+                <Text variant="bodyMedium" style={styles.detailText}>
+                  Notas: {movimiento.notas}
                 </Text>
-
-                <Text style={styles.balanceValue}>
-                    {formatearDinero(movimiento.saldo)}
-                </Text>
+              ) : null}
             </View>
+          )}
+
+          <Divider style={styles.expandedDivider} />
+
+          <Text variant="bodySmall" style={styles.resultingBalance}>
+            Saldo resultante:{' '}
+            <Text style={styles.resultingBalanceBold}>
+              {formatearDinero(movimiento.saldo)}
+            </Text>
+          </Text>
         </View>
-    );
+      </List.Accordion>
+    </Surface>
+  );
 }
 
 export default function EstadoCuentaScreen() {
-    const { id } = useLocalSearchParams<{ id: string }>();
+  const { id } = useLocalSearchParams<{ id: string }>();
 
-    const router = useRouter();
-    const request = useAuthenticatedRequest();
+  const router = useRouter();
+  const request = useAuthenticatedRequest();
 
-    const [estadoCuenta, setEstadoCuenta] =
-        useState<EstadoCuentaResponse | null>(null);
+  const [estadoCuenta, setEstadoCuenta] =
+    useState<EstadoCuentaResponse | null>(null);
 
-    const [cargando, setCargando] = useState(true);
-    const [error, setError] = useState<string | null>(null);
-    const [recarga, setRecarga] = useState(0);
+  const [cargando, setCargando] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [recarga, setRecarga] = useState(0);
 
-    useFocusEffect(
-        useCallback(() => {
-            let vigente = true;
+  const [filtro, setFiltro] = useState<FiltroMovimiento>('TODOS');
+  const [expandidoKey, setExpandidoKey] = useState<string | null>(null);
 
-            async function cargarEstadoCuenta() {
-                const clienteId = Number(id);
+  useFocusEffect(
+    useCallback(() => {
+      let vigente = true;
 
-                setCargando(true);
-                setError(null);
-                setEstadoCuenta(null);
+      async function cargarEstadoCuenta() {
+        const clienteId = Number(id);
 
-                if (
-                    !Number.isSafeInteger(clienteId) ||
-                    clienteId <= 0
-                ) {
-                    setError('Identificador de cliente inválido.');
-                    setCargando(false);
-                    return;
-                }
+        setCargando(true);
+        setError(null);
+        setEstadoCuenta(null);
 
-                try {
-                    const resultado =
-                        await clienteService.obtenerEstadoCuenta(
-                            request,
-                            clienteId,
-                        );
+        if (!Number.isSafeInteger(clienteId) || clienteId <= 0) {
+          setError('Identificador de cliente inválido.');
+          setCargando(false);
+          return;
+        }
 
-                    if (vigente) {
-                        setEstadoCuenta(resultado);
-                    }
-                } catch (err) {
-                    if (!vigente) return;
+        try {
+          const resultado = await clienteService.obtenerEstadoCuenta(
+            request,
+            clienteId
+          );
 
-                    if (err instanceof ApiError) {
-                        if (err.status === 401) {
-                            return;
-                        }
+          if (vigente) {
+            setEstadoCuenta(resultado);
+            if (resultado.movimientos.length > 0) {
+              const primero = resultado.movimientos[0];
+              setExpandidoKey(`${primero.tipo}-${primero.id}`);
+            } else {
+              setExpandidoKey(null);
+            }
+          }
+        } catch (err) {
+          if (!vigente) return;
 
-                        if (err.status === 403) {
-                            setError(
-                                'No tienes permiso para consultar este estado de cuenta.',
-                            );
-                        } else if (err.status === 404) {
-                            setError('El cliente no existe.');
-                        } else {
-                            setError(err.message);
-                        }
-                    } else {
-                        setError(
-                            err instanceof Error
-                                ? err.message
-                                : 'No fue posible consultar el estado de cuenta.',
-                        );
-                    }
-                } finally {
-                    if (vigente) {
-                        setCargando(false);
-                    }
-                }
+          if (err instanceof ApiError) {
+            if (err.status === 401) {
+              return;
             }
 
-            void cargarEstadoCuenta();
+            if (err.status === 403) {
+              setError(
+                'No tienes permiso para consultar este estado de cuenta.'
+              );
+            } else if (err.status === 404) {
+              setError('El cliente no existe.');
+            } else {
+              setError(err.message);
+            }
+          } else {
+            setError(
+              err instanceof Error
+                ? err.message
+                : 'No fue posible consultar el estado de cuenta.'
+            );
+          }
+        } finally {
+          if (vigente) {
+            setCargando(false);
+          }
+        }
+      }
 
-            return () => {
-                vigente = false;
-            };
-        }, [id, request, recarga]),
-    );
+      void cargarEstadoCuenta();
 
-    return (
-        <SafeAreaView style={styles.container}>
-            <View style={styles.header}>
-                <Pressable onPress={() => router.back()}>
-                    <Text style={styles.back}>← Volver</Text>
-                </Pressable>
+      return () => {
+        vigente = false;
+      };
+    }, [id, request, recarga])
+  );
 
-                <Text style={styles.title}>
-                    Estado de cuenta
-                </Text>
+  const movimientosFiltrados = useMemo(() => {
+    if (!estadoCuenta) return [];
+    if (filtro === 'TODOS') return estadoCuenta.movimientos;
+    return estadoCuenta.movimientos.filter((m) => m.tipo === filtro);
+  }, [estadoCuenta, filtro]);
 
-                <Pressable
+  const progresoPago = useMemo(() => {
+    if (!estadoCuenta) return 0;
+    const totalVentas = Number(estadoCuenta.totalVentas);
+    const totalPagos = Number(estadoCuenta.totalPagos);
+
+    if (!Number.isFinite(totalVentas) || totalVentas <= 0) return 1;
+    if (!Number.isFinite(totalPagos) || totalPagos <= 0) return 0;
+
+    return Math.min(1, Math.max(0, totalPagos / totalVentas));
+  }, [estadoCuenta]);
+
+  return (
+    <View style={styles.container}>
+      <Appbar.Header elevated style={styles.appbar}>
+        <Appbar.BackAction onPress={() => router.back()} />
+        <Appbar.Content
+          title="Estado de cuenta"
+          titleStyle={styles.appbarTitle}
+        />
+        <Appbar.Action
+          icon="refresh"
+          accessibilityLabel="Actualizar estado de cuenta"
+          disabled={cargando}
+          onPress={() => setRecarga((actual) => actual + 1)}
+        />
+      </Appbar.Header>
+
+      {cargando ? (
+        <View style={styles.center}>
+          <ActivityIndicator size="large" />
+          <Text variant="bodyMedium" style={styles.mutedText}>
+            Consultando movimientos...
+          </Text>
+        </View>
+      ) : error ? (
+        <View style={styles.center}>
+          <Icon source="alert-circle-outline" size={44} color="#DC2626" />
+          <Text variant="bodyMedium" style={styles.errorText}>
+            {error}
+          </Text>
+          <Button
+            mode="contained"
+            icon="refresh"
+            onPress={() => setRecarga((actual) => actual + 1)}
+          >
+            Reintentar
+          </Button>
+        </View>
+      ) : estadoCuenta ? (
+        <FlatList
+          data={movimientosFiltrados}
+          keyExtractor={(item) => `${item.tipo}-${item.id}`}
+          contentContainerStyle={styles.listContent}
+          ListHeaderComponent={
+            <View style={styles.headerBlock}>
+              <Surface elevation={1} style={styles.summaryCard}>
+                <View style={styles.clientRow}>
+                  <Avatar.Text
+                    size={50}
+                    label={obtenerIniciales(estadoCuenta.cliente.nombre)}
                     style={[
-                        styles.refreshButton,
-                        cargando && styles.disabled,
+                      styles.avatar,
+                      !estadoCuenta.cliente.activo && styles.avatarInactivo,
                     ]}
-                    disabled={cargando}
-                    onPress={() =>
-                        setRecarga((actual) => actual + 1)
-                    }
-                >
-                    <Text style={styles.refreshText}>
-                        Actualizar
-                    </Text>
-                </Pressable>
-            </View>
+                    labelStyle={styles.avatarLabel}
+                  />
 
-            {cargando ? (
-                <View style={styles.center}>
-                    <ActivityIndicator
-                        size="large"
-                        color="#2563EB"
-                    />
-
-                    <Text style={styles.secondaryText}>
-                        Consultando movimientos...
-                    </Text>
-                </View>
-            ) : error ? (
-                <View style={styles.center}>
-                    <Text style={styles.error}>
-                        {error}
-                    </Text>
-
-                    <Pressable
-                        style={styles.refreshButton}
-                        onPress={() =>
-                            setRecarga((actual) => actual + 1)
-                        }
+                  <View style={styles.clientMeta}>
+                    <Text
+                      variant="titleMedium"
+                      numberOfLines={1}
+                      style={styles.clientName}
                     >
-                        <Text style={styles.refreshText}>
-                            Reintentar
-                        </Text>
-                    </Pressable>
-                </View>
-            ) : estadoCuenta ? (
-                <FlatList
-                    data={estadoCuenta.movimientos}
-                    keyExtractor={(item) =>
-                        `${item.tipo}-${item.id}`
-                    }
-                    contentContainerStyle={styles.list}
-
-                    ListHeaderComponent={
-                        <View style={styles.summary}>
-                            <View style={styles.clientCard}>
-                                <Text style={styles.clientName}>
-                                    {estadoCuenta.cliente.nombre}
-                                </Text>
-
-                                <Text style={styles.secondaryText}>
-                                    Cliente #{estadoCuenta.cliente.id}
-                                </Text>
-
-                                <Text style={styles.secondaryText}>
-                                    {estadoCuenta.cliente.telefono ||
-                                        'Sin teléfono'}
-                                </Text>
-
-                                <Text
-                                    style={
-                                        estadoCuenta.cliente.activo
-                                            ? styles.active
-                                            : styles.inactive
-                                    }
-                                >
-                                    {estadoCuenta.cliente.activo
-                                        ? 'Activo'
-                                        : 'Inactivo'}
-                                </Text>
-                            </View>
-
-                            <View style={styles.balanceCard}>
-                                <Text style={styles.secondaryText}>
-                                    Saldo pendiente
-                                </Text>
-
-                                <Text style={styles.totalBalance}>
-                                    {formatearDinero(estadoCuenta.saldo)}
-                                </Text>
-                            </View>
-
-                            <View style={styles.totalsRow}>
-                                <View style={styles.totalCard}>
-                                    <Text style={styles.secondaryText}>
-                                        Total ventas
-                                    </Text>
-
-                                    <Text style={styles.totalValue}>
-                                        {formatearDinero(
-                                            estadoCuenta.totalVentas,
-                                        )}
-                                    </Text>
-                                </View>
-
-                                <View style={styles.totalCard}>
-                                    <Text style={styles.secondaryText}>
-                                        Total pagos
-                                    </Text>
-
-                                    <Text style={styles.totalPaid}>
-                                        {formatearDinero(
-                                            estadoCuenta.totalPagos,
-                                        )}
-                                    </Text>
-                                </View>
-                            </View>
-
-                            <Text style={styles.sectionTitle}>
-                                Historial de movimientos
-                            </Text>
-
-                            <Text style={styles.secondaryText}>
-                                {estadoCuenta.movimientos.length}
-                                {' movimiento(s) registrado(s)'}
-                            </Text>
-                        </View>
-                    }
-
-                    ListEmptyComponent={
-                        <Text style={styles.empty}>
-                            Este cliente todavía no tiene movimientos.
-                        </Text>
-                    }
-
-                    renderItem={({ item }) => (
-                        <MovimientoCard movimiento={item} />
-                    )}
-                />
-            ) : (
-                <View style={styles.center}>
-                    <Text style={styles.secondaryText}>
-                        No hay información disponible.
+                      {estadoCuenta.cliente.nombre}
                     </Text>
+                    <Text variant="bodySmall" style={styles.mutedText}>
+                      #{estadoCuenta.cliente.id} •{' '}
+                      {estadoCuenta.cliente.telefono || 'Sin teléfono'}
+                    </Text>
+                  </View>
+
+                  <View
+                    style={[
+                      styles.statusBadge,
+                      estadoCuenta.cliente.activo
+                        ? styles.badgeActivo
+                        : styles.badgeInactivo,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.statusBadge,
+                        estadoCuenta.cliente.activo
+                          ? styles.badgeActivoText
+                          : styles.badgeInactivoText,
+                      ]}
+                    >
+                      {estadoCuenta.cliente.activo ? 'Activo' : 'Inactivo'}
+                    </Text>
+                  </View>
                 </View>
-            )}
-        </SafeAreaView>
-    );
+
+                <Divider style={styles.cardDivider} />
+
+                <View style={styles.progressSection}>
+                  <Text variant="bodySmall" style={styles.progressSubtitle}>
+                    Progreso de pago
+                  </Text>
+
+                  <Text variant="headlineSmall" style={styles.saldoHeadline}>
+                    Saldo pendiente: {formatearDinero(estadoCuenta.saldo)}
+                  </Text>
+
+                  <ProgressBar
+                    progress={progresoPago}
+                    color="#16845D"
+                    style={styles.progressBar}
+                  />
+
+                  <Text variant="bodySmall" style={styles.progressCaption}>
+                    Pagado:{' '}
+                    <Text style={styles.progressCaptionBold}>
+                      {formatearDinero(estadoCuenta.totalPagos)}
+                    </Text>{' '}
+                    de{' '}
+                    <Text style={styles.progressCaptionBold}>
+                      {formatearDinero(estadoCuenta.totalVentas)}
+                    </Text>
+                  </Text>
+                </View>
+              </Surface>
+
+              <SegmentedButtons
+                value={filtro}
+                onValueChange={(valor) => {
+                  setFiltro(valor as FiltroMovimiento);
+                  setExpandidoKey(null);
+                }}
+                buttons={[
+                  {
+                    value: 'TODOS',
+                    label: 'Todos',
+                    icon: filtro === 'TODOS' ? 'check' : undefined,
+                  },
+                  {
+                    value: 'VENTA',
+                    label: 'Ventas',
+                    icon: 'cart-outline',
+                  },
+                  {
+                    value: 'PAGO',
+                    label: 'Pagos',
+                    icon: 'cash',
+                  },
+                ]}
+              />
+
+              <Text variant="titleMedium" style={styles.sectionTitle}>
+                Movimientos recientes ({movimientosFiltrados.length})
+              </Text>
+            </View>
+          }
+          ListEmptyComponent={
+            <View style={styles.emptyContainer}>
+              <Icon
+                source="receipt-text-outline"
+                size={40}
+                color="#94A3B8"
+              />
+              <Text variant="bodyMedium" style={styles.mutedText}>
+                {filtro === 'TODOS'
+                  ? 'Este cliente todavía no tiene movimientos.'
+                  : `No hay ${filtro === 'VENTA' ? 'ventas' : 'pagos'} registrados.`}
+              </Text>
+            </View>
+          }
+          renderItem={({ item }) => {
+            const key = `${item.tipo}-${item.id}`;
+            return (
+              <MovimientoAccordion
+                movimiento={item}
+                expandido={expandidoKey === key}
+                onToggle={() =>
+                  setExpandidoKey((actual) => (actual === key ? null : key))
+                }
+              />
+            );
+          }}
+        />
+      ) : (
+        <View style={styles.center}>
+          <Text variant="bodyMedium" style={styles.mutedText}>
+            No hay información disponible.
+          </Text>
+        </View>
+      )}
+    </View>
+  );
 }
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: '#F5F7FA',
-    },
-    header: {
-        padding: 16,
-        gap: 12,
-    },
-    back: {
-        color: '#2563EB',
-        fontSize: 16,
-        fontWeight: '600',
-    },
-    title: {
-        fontSize: 26,
-        fontWeight: '700',
-        color: '#162033',
-    },
-    refreshButton: {
-        backgroundColor: '#2563EB',
-        borderRadius: 10,
-        padding: 12,
-        alignItems: 'center',
-    },
-    refreshText: {
-        color: '#FFFFFF',
-        fontWeight: '600',
-    },
-    disabled: {
-        opacity: 0.5,
-    },
-    list: {
-        padding: 16,
-        paddingBottom: 32,
-        gap: 12,
-        flexGrow: 1,
-    },
-    summary: {
-        gap: 12,
-        marginBottom: 12,
-    },
-    clientCard: {
-        backgroundColor: '#FFFFFF',
-        borderRadius: 12,
-        padding: 18,
-        gap: 6,
-        borderWidth: 1,
-        borderColor: '#E2E8F0',
-    },
-    clientName: {
-        fontSize: 21,
-        fontWeight: '700',
-        color: '#162033',
-    },
-    active: {
-        color: '#16845D',
-        fontWeight: '600',
-        fontSize: 13,
-    },
-    inactive: {
-        color: '#DC2626',
-        fontWeight: '600',
-        fontSize: 13,
-    },
-    balanceCard: {
-        backgroundColor: '#FFFFFF',
-        borderRadius: 12,
-        padding: 20,
-        gap: 8,
-        borderWidth: 1,
-        borderColor: '#E2E8F0',
-    },
-    totalBalance: {
-        fontSize: 30,
-        fontWeight: '700',
-        color: '#162033',
-    },
-    totalsRow: {
-        flexDirection: 'row',
-        gap: 10,
-    },
-    totalCard: {
-        flex: 1,
-        backgroundColor: '#FFFFFF',
-        borderRadius: 12,
-        padding: 14,
-        gap: 8,
-    },
-    totalValue: {
-        fontSize: 18,
-        fontWeight: '700',
-        color: '#162033',
-    },
-    totalPaid: {
-        fontSize: 18,
-        fontWeight: '700',
-        color: '#16845D',
-    },
-    sectionTitle: {
-        fontSize: 19,
-        fontWeight: '700',
-        color: '#162033',
-        marginTop: 8,
-    },
-    secondaryText: {
-        fontSize: 13,
-        color: '#64748B',
-    },
-    movementCard: {
-        backgroundColor: '#FFFFFF',
-        borderRadius: 12,
-        padding: 16,
-        borderWidth: 1,
-        borderColor: '#E2E8F0',
-        gap: 12,
-    },
-    movementHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        gap: 12,
-        alignItems: 'flex-start',
-    },
-    movementInfo: {
-        flex: 1,
-        gap: 4,
-    },
-    movementTitle: {
-        fontSize: 16,
-        fontWeight: '700',
-        color: '#162033',
-    },
-    movementAmount: {
-        fontSize: 17,
-        fontWeight: '700',
-        color: '#162033',
-    },
-    paymentText: {
-        color: '#16845D',
-    },
-    divider: {
-        height: 1,
-        backgroundColor: '#E2E8F0',
-    },
-    details: {
-        gap: 10,
-    },
-    sectionLabel: {
-        fontSize: 14,
-        fontWeight: '600',
-        color: '#334155',
-    },
-    productRow: {
-        padding: 10,
-        backgroundColor: '#F8FAFC',
-        borderRadius: 8,
-        gap: 4,
-    },
-    productName: {
-        fontWeight: '600',
-        fontSize: 14,
-        color: '#162033',
-    },
-    value: {
-        color: '#162033',
-        fontSize: 14,
-    },
-    balanceRow: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        gap: 12,
-    },
-    balanceValue: {
-        fontSize: 14,
-        fontWeight: '700',
-        color: '#162033',
-    },
-    center: {
-        flex: 1,
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: 24,
-        gap: 16,
-    },
-    error: {
-        color: '#DC2626',
-        fontSize: 14,
-        textAlign: 'center',
-    },
-    empty: {
-        textAlign: 'center',
-        color: '#64748B',
-        padding: 24,
-    },
+  container: {
+    flex: 1,
+    backgroundColor: '#F1F5F9',
+  },
+  appbar: {
+    backgroundColor: '#FFFFFF',
+  },
+  appbarTitle: {
+    fontWeight: '700',
+    color: '#162033',
+  },
+  listContent: {
+    padding: 16,
+    paddingBottom: 32,
+    gap: 12,
+    flexGrow: 1,
+  },
+  headerBlock: {
+    gap: 16,
+    marginBottom: 4,
+  },
+  summaryCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 16,
+    gap: 14,
+  },
+  clientRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  avatar: {
+    backgroundColor: '#CBD5E1',
+  },
+  avatarInactivo: {
+    backgroundColor: '#E2E8F0',
+  },
+  avatarLabel: {
+    color: '#1E293B',
+    fontWeight: '700',
+    fontSize: 18,
+  },
+  clientMeta: {
+    flex: 1,
+    gap: 2,
+  },
+  clientName: {
+    fontWeight: '700',
+    color: '#162033',
+  },
+  statusBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  badgeActivo: {
+    backgroundColor: '#DCFCE7',
+  },
+  badgeActivoText: {
+    color: '#15803D',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  badgeInactivo: {
+    backgroundColor: '#FEE2E2',
+  },
+  badgeInactivoText: {
+    color: '#DC2626',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  cardDivider: {
+    backgroundColor: '#E2E8F0',
+  },
+  progressSection: {
+    gap: 8,
+  },
+  progressSubtitle: {
+    color: '#64748B',
+  },
+  saldoHeadline: {
+    fontWeight: '800',
+    color: '#162033',
+    fontSize: 22,
+  },
+  progressBar: {
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#E2E8F0',
+  },
+  progressCaption: {
+    color: '#475569',
+  },
+  progressCaptionBold: {
+    fontWeight: '700',
+    color: '#162033',
+  },
+  sectionTitle: {
+    fontWeight: '700',
+    color: '#162033',
+  },
+  accordionCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    overflow: 'hidden',
+  },
+  accordionHeader: {
+    backgroundColor: '#FFFFFF',
+    paddingVertical: 4,
+  },
+  accordionRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    alignSelf: 'center',
+  },
+  movementTitle: {
+    fontWeight: '700',
+    color: '#162033',
+  },
+  movementAmount: {
+    fontWeight: '700',
+    color: '#162033',
+  },
+  paymentText: {
+    color: '#16845D',
+  },
+  accordionDescription: {
+    color: '#64748B',
+    fontSize: 12,
+    marginTop: 2,
+  },
+  iconCircle: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    alignItems: 'center',
+    justifyContent: 'center',
+    alignSelf: 'center',
+    marginLeft: 8,
+  },
+  ventaIconBg: {
+    backgroundColor: '#F1F5F9',
+  },
+  pagoIconBg: {
+    backgroundColor: '#D1FAE5',
+  },
+  expandedBody: {
+    backgroundColor: '#E2E8F0',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    gap: 10,
+  },
+  expandedDetails: {
+    gap: 4,
+  },
+  detailText: {
+    color: '#1E293B',
+  },
+  expandedDivider: {
+    backgroundColor: '#CBD5E1',
+  },
+  resultingBalance: {
+    color: '#334155',
+  },
+  resultingBalanceBold: {
+    fontWeight: '700',
+    color: '#162033',
+  },
+  mutedText: {
+    color: '#64748B',
+    textAlign: 'left',
+  },
+  center: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 24,
+    gap: 14,
+  },
+  emptyContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 36,
+    gap: 10,
+  },
+  errorText: {
+    color: '#DC2626',
+    textAlign: 'center',
+  },
 });

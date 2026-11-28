@@ -1,22 +1,20 @@
 import { useCallback, useState } from 'react';
-
+import { FlatList, ScrollView, StyleSheet, View } from 'react-native';
 import {
-    useFocusEffect,
-    useRouter,
-} from 'expo-router';
-
-import {
-    ActivityIndicator,
-    FlatList,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    View,
-} from 'react-native';
-
-import { SafeAreaView } from 'react-native-safe-area-context';
+  ActivityIndicator,
+  Appbar,
+  Button,
+  Chip,
+  Divider,
+  FAB,
+  Icon,
+  Menu,
+  Searchbar,
+  Surface,
+  Text,
+  TouchableRipple,
+} from 'react-native-paper';
+import { useFocusEffect, useRouter } from 'expo-router';
 
 import { useAuthenticatedRequest } from '@/hooks/useAuthenticatedRequest';
 import { productoService } from '@/services/producto.service';
@@ -28,802 +26,716 @@ import type { Categoria } from '@/types/categoria.types';
 
 const LIMITES = [10, 20, 50] as const;
 
+const PALETA_CATEGORIAS = [
+  { bg: '#DBEAFE', icon: '#2563EB' },
+  { bg: '#FEF3C7', icon: '#D97706' },
+  { bg: '#EDE9FE', icon: '#7C3AED' },
+  { bg: '#FCE7F3', icon: '#DB2777' },
+  { bg: '#D1FAE5', icon: '#059669' },
+] as const;
+
 const monedaMXN = new Intl.NumberFormat('es-MX', {
-    style: 'currency',
-    currency: 'MXN',
+  style: 'currency',
+  currency: 'MXN',
 });
 
 function formatearPrecio(precio: string): string {
-    const numero = Number(precio);
+  const numero = Number(precio);
 
-    return Number.isFinite(numero)
-        ? monedaMXN.format(numero)
-        : precio;
+  return Number.isFinite(numero) ? monedaMXN.format(numero) : precio;
+}
+
+function obtenerColorCategoria(categoriaId: number) {
+  const indice = Math.abs(categoriaId) % PALETA_CATEGORIAS.length;
+  return PALETA_CATEGORIAS[indice];
 }
 
 export default function ProductosScreen() {
-    const router = useRouter();
-    const request = useAuthenticatedRequest();
+  const router = useRouter();
+  const request = useAuthenticatedRequest();
 
-    const [productos, setProductos] = useState<Producto[]>([]);
-    const [categorias, setCategorias] = useState<Categoria[]>([]);
+  const [productos, setProductos] = useState<Producto[]>([]);
+  const [categorias, setCategorias] = useState<Categoria[]>([]);
 
-    const [total, setTotal] = useState(0);
-    const [totalPaginas, setTotalPaginas] = useState(0);
+  const [total, setTotal] = useState(0);
+  const [totalPaginas, setTotalPaginas] = useState(0);
 
-    const [activo, setActivo] = useState(true);
+  const [activo, setActivo] = useState(true);
 
-    const [busqueda, setBusqueda] = useState('');
-    const [nombreAplicado, setNombreAplicado] = useState('');
+  const [busqueda, setBusqueda] = useState('');
+  const [nombreAplicado, setNombreAplicado] = useState('');
 
-    const [categoriaId, setCategoriaId] =
-        useState<number | null>(null);
+  const [categoriaId, setCategoriaId] = useState<number | null>(null);
 
-    const [pagina, setPagina] = useState(1);
-    const [limite, setLimite] = useState(20);
+  const [pagina, setPagina] = useState(1);
+  const [limite, setLimite] = useState<number>(20);
+  const [menuLimiteVisible, setMenuLimiteVisible] = useState(false);
 
-    const [cargando, setCargando] = useState(true);
-    const [error, setError] = useState<string | null>(null);
-    const [recarga, setRecarga] = useState(0);
+  const [cargando, setCargando] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [recarga, setRecarga] = useState(0);
 
-    const [cargandoCategorias, setCargandoCategorias] =
-        useState(true);
+  const [cargandoCategorias, setCargandoCategorias] = useState(true);
+  const [errorCategorias, setErrorCategorias] = useState<string | null>(null);
 
-    const [errorCategorias, setErrorCategorias] =
-        useState<string | null>(null);
+  useFocusEffect(
+    useCallback(() => {
+      let vigente = true;
 
-    useFocusEffect(
-        useCallback(() => {
-            let vigente = true;
+      async function cargarCategorias() {
+        setCargandoCategorias(true);
+        setErrorCategorias(null);
 
-            async function cargarCategorias() {
-                setCargandoCategorias(true);
-                setErrorCategorias(null);
+        try {
+          const resultado = await categoriaService.listar(request, true);
 
-                try {
-                    const resultado = await categoriaService.listar(
-                        request,
-                        true,
-                    );
+          if (vigente) {
+            setCategorias(resultado);
+          }
+        } catch (err) {
+          if (!vigente) return;
 
-                    if (vigente) {
-                        setCategorias(resultado);
-                    }
-                } catch (err) {
-                    if (!vigente) return;
+          setCategorias([]);
 
-                    setCategorias([]);
+          if (err instanceof ApiError && err.status === 401) {
+            return;
+          }
 
-                    if (err instanceof ApiError && err.status === 401) {
-                        return;
-                    }
+          if (err instanceof ApiError && err.status === 403) {
+            setErrorCategorias(
+              'No tienes permiso para consultar categorías.'
+            );
+          } else {
+            setErrorCategorias(
+              err instanceof Error
+                ? err.message
+                : 'No se pudieron cargar las categorías.'
+            );
+          }
+        } finally {
+          if (vigente) {
+            setCargandoCategorias(false);
+          }
+        }
+      }
 
-                    if (err instanceof ApiError && err.status === 403) {
-                        setErrorCategorias(
-                            'No tienes permiso para consultar categorías.',
-                        );
-                    } else {
-                        setErrorCategorias(
-                            err instanceof Error
-                                ? err.message
-                                : 'No se pudieron cargar las categorías.',
-                        );
-                    }
-                } finally {
-                    if (vigente) {
-                        setCargandoCategorias(false);
-                    }
-                }
-            }
+      void cargarCategorias();
 
-            void cargarCategorias();
+      return () => {
+        vigente = false;
+      };
+    }, [request])
+  );
 
-            return () => {
-                vigente = false;
-            };
-        }, [request]),
-    );
+  useFocusEffect(
+    useCallback(() => {
+      let vigente = true;
 
-    useFocusEffect(
-        useCallback(() => {
-            let vigente = true;
+      async function cargarProductos() {
+        setCargando(true);
+        setError(null);
 
-            async function cargarProductos() {
-                setCargando(true);
-                setError(null);
-
-                try {
-                    const resultado =
-                        await productoService.listarPaginado(
-                            request,
-                            {
-                                activo,
-                                nombre: nombreAplicado,
-                                categoriaId: categoriaId ?? undefined,
-                                page: pagina,
-                                limit: limite,
-                            },
-                        );
-
-                    if (!vigente) return;
-
-                    setProductos(resultado.data);
-                    setTotal(resultado.total);
-                    setTotalPaginas(resultado.totalPages);
-                } catch (err) {
-                    if (!vigente) return;
-
-                    if (err instanceof ApiError) {
-                        if (err.status === 401) {
-                            return;
-                        }
-
-                        if (err.status === 403) {
-                            setError(
-                                'No tienes permiso para consultar productos.',
-                            );
-                        } else {
-                            setError(err.message);
-                        }
-                    } else {
-                        setError(
-                            err instanceof Error
-                                ? err.message
-                                : 'No fue posible cargar los productos.',
-                        );
-                    }
-                } finally {
-                    if (vigente) {
-                        setCargando(false);
-                    }
-                }
-            }
-
-            void cargarProductos();
-
-            return () => {
-                vigente = false;
-            };
-        }, [
-            request,
+        try {
+          const resultado = await productoService.listarPaginado(request, {
             activo,
-            nombreAplicado,
-            categoriaId,
-            pagina,
-            limite,
-            recarga,
-        ]),
-    );
+            nombre: nombreAplicado,
+            categoriaId: categoriaId ?? undefined,
+            page: pagina,
+            limit: limite,
+          });
 
-    function cambiarEstado(nuevoEstado: boolean) {
-        setActivo(nuevoEstado);
-        setPagina(1);
-    }
+          if (!vigente) return;
 
-    function aplicarBusqueda() {
-        setNombreAplicado(busqueda.trim());
-        setPagina(1);
-    }
+          setProductos(resultado.data);
+          setTotal(resultado.total);
+          setTotalPaginas(resultado.totalPages);
+        } catch (err) {
+          if (!vigente) return;
 
-    function limpiarBusqueda() {
-        setBusqueda('');
-        setNombreAplicado('');
-        setPagina(1);
-    }
+          if (err instanceof ApiError) {
+            if (err.status === 401) {
+              return;
+            }
 
-    function cambiarCategoria(nuevoId: number | null) {
-        setCategoriaId(nuevoId);
-        setPagina(1);
-    }
+            if (err.status === 403) {
+              setError('No tienes permiso para consultar productos.');
+            } else {
+              setError(err.message);
+            }
+          } else {
+            setError(
+              err instanceof Error
+                ? err.message
+                : 'No fue posible cargar los productos.'
+            );
+          }
+        } finally {
+          if (vigente) {
+            setCargando(false);
+          }
+        }
+      }
 
-    function cambiarLimite(nuevoLimite: number) {
-        setLimite(nuevoLimite);
-        setPagina(1);
-    }
+      void cargarProductos();
 
-    const puedeRetroceder = !cargando && pagina > 1;
+      return () => {
+        vigente = false;
+      };
+    }, [
+      request,
+      activo,
+      nombreAplicado,
+      categoriaId,
+      pagina,
+      limite,
+      recarga,
+    ])
+  );
 
-    const puedeAvanzar =
-        !cargando && pagina < totalPaginas;
+  function cambiarEstado(nuevoEstado: boolean) {
+    if (activo === nuevoEstado) return;
+    setActivo(nuevoEstado);
+    setPagina(1);
+  }
 
-    function irAnterior() {
-        setPagina((actual) => Math.max(1, actual - 1));
-    }
+  function aplicarBusqueda() {
+    setNombreAplicado(busqueda.trim());
+    setPagina(1);
+  }
 
-    function irSiguiente() {
-        setPagina((actual) =>
-            Math.min(totalPaginas, actual + 1),
-        );
-    }
+  function limpiarBusqueda() {
+    setBusqueda('');
+    setNombreAplicado('');
+    setPagina(1);
+  }
 
-    return (
-        <SafeAreaView style={styles.container}>
-            <View style={styles.header}>
-                <Pressable onPress={() => router.navigate('/')}>
-                    <Text style={styles.back}>← Volver</Text>
-                </Pressable>
+  function cambiarCategoria(nuevoId: number | null) {
+    setCategoriaId(nuevoId);
+    setPagina(1);
+  }
 
-                <Text style={styles.title}>Productos</Text>
-                <Pressable style={styles.newButton} onPress={() => router.push('/productos/nuevo')}>
-                    <Text style={styles.newButtonText}>Nuevo producto</Text>
-                </Pressable>
-            </View>
+  function cambiarLimite(nuevoLimite: number) {
+    setLimite(nuevoLimite);
+    setPagina(1);
+    setMenuLimiteVisible(false);
+  }
 
+  const puedeRetroceder = !cargando && pagina > 1;
+  const puedeAvanzar = !cargando && pagina < totalPaginas;
+  const totalPaginasVisual = Math.max(1, totalPaginas);
 
+  return (
+    <View style={styles.container}>
+      <Appbar.Header style={styles.appbar}>
+        <Appbar.BackAction onPress={() => router.navigate('/')} />
+        <Appbar.Content title="Productos" titleStyle={styles.appbarTitle} />
+        <Appbar.Action
+          icon="refresh"
+          accessibilityLabel="Actualizar productos"
+          disabled={cargando}
+          onPress={() => setRecarga((actual) => actual + 1)}
+        />
+      </Appbar.Header>
 
-            <FlatList
-                data={cargando || error ? [] : productos}
-                keyExtractor={(item) => String(item.id)}
-                contentContainerStyle={styles.content}
-                keyboardShouldPersistTaps="handled"
+      <View style={styles.topPanel}>
+        <Searchbar
+          placeholder="Buscar por nombre..."
+          value={busqueda}
+          onChangeText={(texto) => {
+            setBusqueda(texto);
+            if (texto === '' && nombreAplicado !== '') {
+              setNombreAplicado('');
+              setPagina(1);
+            }
+          }}
+          onSubmitEditing={aplicarBusqueda}
+          onIconPress={aplicarBusqueda}
+          onClearIconPress={limpiarBusqueda}
+          returnKeyType="search"
+          autoCorrect={false}
+          style={styles.searchbar}
+          inputStyle={styles.searchInput}
+        />
 
-                ListHeaderComponent={
-                    <View style={styles.filters}>
-                        <Text style={styles.label}>Estado</Text>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.chipsRow}
+          keyboardShouldPersistTaps="handled"
+        >
+          <Chip
+            selected={activo}
+            showSelectedCheck={false}
+            icon={activo ? 'check' : undefined}
+            onPress={() => cambiarEstado(true)}
+            style={[styles.chip, activo && styles.chipEstadoSelected]}
+            textStyle={activo ? styles.chipSelectedText : styles.chipText}
+          >
+            Activos
+          </Chip>
 
-                        <View style={styles.segmented}>
-                            <Pressable
-                                style={[
-                                    styles.segment,
-                                    activo && styles.segmentSelected,
-                                ]}
-                                onPress={() => cambiarEstado(true)}
-                            >
-                                <Text
-                                    style={[
-                                        styles.segmentText,
-                                        activo && styles.segmentTextSelected,
-                                    ]}
-                                >
-                                    Activos
-                                </Text>
-                            </Pressable>
+          <Chip
+            selected={!activo}
+            showSelectedCheck={false}
+            icon={!activo ? 'check' : undefined}
+            onPress={() => cambiarEstado(false)}
+            style={[styles.chip, !activo && styles.chipInactivoSelected]}
+            textStyle={!activo ? styles.chipInactivoText : styles.chipText}
+          >
+            Inactivos
+          </Chip>
 
-                            <Pressable
-                                style={[
-                                    styles.segment,
-                                    !activo && styles.segmentSelected,
-                                ]}
-                                onPress={() => cambiarEstado(false)}
-                            >
-                                <Text
-                                    style={[
-                                        styles.segmentText,
-                                        !activo && styles.segmentTextSelected,
-                                    ]}
-                                >
-                                    Inactivos
-                                </Text>
-                            </Pressable>
-                        </View>
+          <View style={styles.chipSeparator} />
 
-                        <Text style={styles.label}>
-                            Buscar por nombre
-                        </Text>
+          <Chip
+            selected={categoriaId === null}
+            showSelectedCheck={false}
+            onPress={() => cambiarCategoria(null)}
+            style={[
+              styles.chip,
+              categoriaId === null && styles.chipCategorySelected,
+            ]}
+            textStyle={
+              categoriaId === null ? styles.chipSelectedText : styles.chipText
+            }
+          >
+            Todas
+          </Chip>
 
-                        <TextInput
-                            style={styles.input}
-                            value={busqueda}
-                            onChangeText={setBusqueda}
-                            placeholder="Ej. Perfume"
-                            autoCorrect={false}
-                            returnKeyType="search"
-                            onSubmitEditing={aplicarBusqueda}
-                        />
+          {cargandoCategorias ? (
+            <ActivityIndicator size="small" style={styles.categoryLoader} />
+          ) : (
+            categorias.map((categoria) => {
+              const seleccionada = categoriaId === categoria.id;
+              return (
+                <Chip
+                  key={categoria.id}
+                  selected={seleccionada}
+                  showSelectedCheck={false}
+                  onPress={() => cambiarCategoria(categoria.id)}
+                  style={[
+                    styles.chip,
+                    seleccionada && styles.chipCategorySelected,
+                  ]}
+                  textStyle={
+                    seleccionada ? styles.chipSelectedText : styles.chipText
+                  }
+                >
+                  {categoria.nombre}
+                </Chip>
+              );
+            })
+          )}
+        </ScrollView>
 
-                        <View style={styles.actions}>
-                            <Pressable
-                                style={styles.primaryButton}
-                                onPress={aplicarBusqueda}
-                            >
-                                <Text style={styles.primaryText}>
-                                    Buscar
-                                </Text>
-                            </Pressable>
+        {errorCategorias ? (
+          <Text variant="bodySmall" style={styles.warningText}>
+            {errorCategorias}
+          </Text>
+        ) : null}
 
-                            <Pressable
-                                style={styles.secondaryButton}
-                                onPress={limpiarBusqueda}
-                            >
-                                <Text style={styles.secondaryButtonText}>
-                                    Limpiar
-                                </Text>
-                            </Pressable>
-                        </View>
+        <View style={styles.resultsBar}>
+          <Text variant="bodySmall" style={styles.resultsText}>
+            {cargando
+              ? 'Consultando productos...'
+              : `${total} producto(s)`}
+          </Text>
 
-                        <Text style={styles.label}>
-                            Categoría
-                        </Text>
+          <Menu
+            visible={menuLimiteVisible}
+            onDismiss={() => setMenuLimiteVisible(false)}
+            anchor={
+              <Button
+                mode="text"
+                compact
+                icon="chevron-down"
+                contentStyle={styles.limitAnchorContent}
+                labelStyle={styles.limitAnchorLabel}
+                onPress={() => setMenuLimiteVisible(true)}
+              >
+                Mostrar: {limite}
+              </Button>
+            }
+          >
+            {LIMITES.map((cantidad) => (
+              <Menu.Item
+                key={cantidad}
+                title={`${cantidad} por página`}
+                leadingIcon={limite === cantidad ? 'check' : undefined}
+                onPress={() => cambiarLimite(cantidad)}
+              />
+            ))}
+          </Menu>
+        </View>
+      </View>
 
-                        {cargandoCategorias ? (
-                            <ActivityIndicator
-                                size="small"
-                                color="#2563EB"
-                            />
-                        ) : null}
+      <View style={styles.listWrapper}>
+        {cargando ? (
+          <View style={styles.center}>
+            <ActivityIndicator size="large" />
+            <Text variant="bodyMedium" style={styles.mutedText}>
+              Cargando catálogo...
+            </Text>
+          </View>
+        ) : error ? (
+          <View style={styles.center}>
+            <Icon source="alert-circle-outline" size={42} color="#DC2626" />
+            <Text variant="bodyMedium" style={styles.errorText}>
+              {error}
+            </Text>
+            <Button
+              mode="contained"
+              icon="refresh"
+              onPress={() => setRecarga((actual) => actual + 1)}
+            >
+              Reintentar
+            </Button>
+          </View>
+        ) : (
+          <FlatList
+            data={productos}
+            keyExtractor={(item) => String(item.id)}
+            keyboardShouldPersistTaps="handled"
+            contentContainerStyle={styles.flatListContent}
+            ItemSeparatorComponent={() => <Divider style={styles.rowDivider} />}
+            ListEmptyComponent={
+              <View style={styles.emptyContainer}>
+                <Icon
+                  source="package-variant-closed"
+                  size={44}
+                  color="#94A3B8"
+                />
+                <Text variant="bodyMedium" style={styles.mutedText}>
+                  No se encontraron productos con esos filtros.
+                </Text>
+              </View>
+            }
+            renderItem={({ item }) => {
+              const paleta = obtenerColorCategoria(item.categoriaId);
+              const nombreCategoria =
+                item.categoria?.nombre ?? `#${item.categoriaId}`;
 
-                        {errorCategorias ? (
-                            <Text style={styles.warning}>
-                                {errorCategorias}
-                            </Text>
-                        ) : null}
-
-                        <ScrollView
-                            horizontal
-                            showsHorizontalScrollIndicator={false}
-                            contentContainerStyle={styles.categoryOptions}
-                            keyboardShouldPersistTaps="handled"
-                        >
-                            <Pressable
-                                style={[
-                                    styles.categoryChip,
-                                    categoriaId === null &&
-                                    styles.categoryChipSelected,
-                                ]}
-                                onPress={() => cambiarCategoria(null)}
-                            >
-                                <Text
-                                    style={[
-                                        styles.chipText,
-                                        categoriaId === null &&
-                                        styles.chipTextSelected,
-                                    ]}
-                                >
-                                    Todas
-                                </Text>
-                            </Pressable>
-
-                            {categorias.map((categoria) => (
-                                <Pressable
-                                    key={categoria.id}
-                                    style={[
-                                        styles.categoryChip,
-                                        categoriaId === categoria.id &&
-                                        styles.categoryChipSelected,
-                                    ]}
-                                    onPress={() =>
-                                        cambiarCategoria(categoria.id)
-                                    }
-                                >
-                                    <Text
-                                        style={[
-                                            styles.chipText,
-                                            categoriaId === categoria.id &&
-                                            styles.chipTextSelected,
-                                        ]}
-                                    >
-                                        {categoria.nombre}
-                                    </Text>
-                                </Pressable>
-                            ))}
-                        </ScrollView>
-
-                        <Text style={styles.label}>
-                            Registros por página
-                        </Text>
-
-                        <View style={styles.limitOptions}>
-                            {LIMITES.map((cantidad) => (
-                                <Pressable
-                                    key={cantidad}
-                                    style={[
-                                        styles.limitButton,
-                                        limite === cantidad &&
-                                        styles.limitSelected,
-                                    ]}
-                                    onPress={() => cambiarLimite(cantidad)}
-                                >
-                                    <Text
-                                        style={[
-                                            styles.limitText,
-                                            limite === cantidad &&
-                                            styles.limitTextSelected,
-                                        ]}
-                                    >
-                                        {cantidad}
-                                    </Text>
-                                </Pressable>
-                            ))}
-                        </View>
-
-                        <View style={styles.resultsHeader}>
-                            <Text style={styles.label}>
-                                {cargando
-                                    ? 'Consultando productos...'
-                                    : `${total} producto(s) encontrados`}
-                            </Text>
-
-                            <Pressable
-                                disabled={cargando}
-                                onPress={() =>
-                                    setRecarga((actual) => actual + 1)
-                                }
-                            >
-                                <Text style={styles.refresh}>
-                                    Actualizar
-                                </Text>
-                            </Pressable>
-                        </View>
-                    </View>
-                }
-
-                ListEmptyComponent={
-                    cargando ? (
-                        <View style={styles.center}>
-                            <ActivityIndicator
-                                size="large"
-                                color="#2563EB"
-                            />
-                        </View>
-                    ) : error ? (
-                        <View style={styles.center}>
-                            <Text style={styles.error}>{error}</Text>
-
-                            <Pressable
-                                style={styles.primaryButton}
-                                onPress={() =>
-                                    setRecarga((actual) => actual + 1)
-                                }
-                            >
-                                <Text style={styles.primaryText}>
-                                    Reintentar
-                                </Text>
-                            </Pressable>
-                        </View>
-                    ) : (
-                        <Text style={styles.empty}>
-                            No se encontraron productos con esos filtros.
-                        </Text>
-                    )
-                }
-
-
-                renderItem={({ item }) => (
-                    <Pressable
-                        style={styles.card}
-                        onPress={() =>
-                            router.push({
-                                pathname: '/productos/[id]',
-                                params: {
-                                    id: String(item.id),
-                                },
-                            })
-                        }
+              return (
+                <TouchableRipple
+                  onPress={() =>
+                    router.push({
+                      pathname: '/productos/[id]',
+                      params: { id: String(item.id) },
+                    })
+                  }
+                  style={styles.productRow}
+                >
+                  <View style={styles.rowInner}>
+                    <View
+                      style={[
+                        styles.tagCircle,
+                        {
+                          backgroundColor: item.activo
+                            ? paleta.bg
+                            : '#E2E8F0',
+                        },
+                      ]}
                     >
-                        <View style={styles.cardTop}>
-                            <Text style={styles.productName}>
-                                {item.nombre}
-                            </Text>
+                      <Icon
+                        source="tag-outline"
+                        size={20}
+                        color={item.activo ? paleta.icon : '#64748B'}
+                      />
+                    </View>
 
-                            <Text style={styles.price}>
-                                {formatearPrecio(item.precio)}
-                            </Text>
-                        </View>
+                    <View style={styles.rowInfo}>
+                      <Text
+                        variant="titleMedium"
+                        numberOfLines={1}
+                        style={styles.productTitle}
+                      >
+                        {item.nombre}
+                      </Text>
 
-                        <Text style={styles.detail}>
-                            Categoría:{' '}
-                            {item.categoria?.nombre ??
-                                `#${item.categoriaId}`}
-                        </Text>
-
+                      <Text variant="bodySmall" style={styles.productSubtitle}>
+                        {nombreCategoria} •{' '}
                         <Text
-                            style={
-                                item.activo
-                                    ? styles.active
-                                    : styles.inactive
-                            }
+                          style={
+                            item.activo
+                              ? styles.activeLabel
+                              : styles.inactiveLabel
+                          }
                         >
-                            {item.activo ? 'Activo' : 'Inactivo'}
+                          {item.activo ? 'Activo' : 'Inactivo'}
                         </Text>
+                      </Text>
+                    </View>
 
-                        <Text style={styles.openDetail}>
-                            Ver detalle →
-                        </Text>
-                    </Pressable>
-                )}
+                    <View style={styles.rowRight}>
+                      <Text variant="titleMedium" style={styles.priceText}>
+                        {formatearPrecio(item.precio)}
+                      </Text>
+                      <Icon
+                        source="chevron-right"
+                        size={20}
+                        color="#94A3B8"
+                      />
+                    </View>
+                  </View>
+                </TouchableRipple>
+              );
+            }}
+          />
+        )}
 
-                ListFooterComponent={
-                    !cargando && !error ? (
-                        <View style={styles.pagination}>
-                            <Pressable
-                                style={[
-                                    styles.pageButton,
-                                    !puedeRetroceder && styles.disabled,
-                                ]}
-                                disabled={!puedeRetroceder}
-                                onPress={irAnterior}
-                            >
-                                <Text style={styles.pageButtonText}>
-                                    Anterior
-                                </Text>
-                            </Pressable>
+        <FAB
+          icon="plus"
+          label="Nuevo"
+          style={styles.fab}
+          color="#FFFFFF"
+          onPress={() => router.push('/productos/nuevo')}
+        />
+      </View>
 
-                            <View style={styles.pageInfo}>
-                                <Text style={styles.pageText}>
-                                    Página {pagina} de {Math.max(1, totalPaginas)}
-                                </Text>
+      {!cargando && !error && (
+        <Surface elevation={2} style={styles.paginationBar}>
+          <Button
+            mode="outlined"
+            compact
+            icon="chevron-left"
+            disabled={!puedeRetroceder}
+            onPress={() => setPagina((actual) => Math.max(1, actual - 1))}
+          >
+            Anterior
+          </Button>
 
-                                <Text style={styles.pageSubtext}>
-                                    {productos.length} de {total} registros
-                                </Text>
-                            </View>
+          <View style={styles.pageInfo}>
+            <Text variant="labelMedium" style={styles.pageText}>
+              Página {pagina} de {totalPaginasVisual}
+            </Text>
+            <Text variant="bodySmall" style={styles.pageSubtext}>
+              {productos.length} de {total} registros
+            </Text>
+          </View>
 
-                            <Pressable
-                                style={[
-                                    styles.pageButton,
-                                    !puedeAvanzar && styles.disabled,
-                                ]}
-                                disabled={!puedeAvanzar}
-                                onPress={irSiguiente}
-                            >
-                                <Text style={styles.pageButtonText}>
-                                    Siguiente
-                                </Text>
-                            </Pressable>
-                        </View>
-                    ) : undefined
-                }
-            />
-        </SafeAreaView>
-    );
+          <Button
+            mode="outlined"
+            compact
+            icon="chevron-right"
+            contentStyle={styles.nextButtonContent}
+            disabled={!puedeAvanzar}
+            onPress={() =>
+              setPagina((actual) => Math.min(totalPaginas, actual + 1))
+            }
+          >
+            Siguiente
+          </Button>
+        </Surface>
+      )}
+    </View>
+  );
 }
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: '#F5F7FA',
-    },
-    header: {
-        padding: 16,
-        gap: 10,
-    },
-    back: {
-        color: '#2563EB',
-        fontWeight: '600',
-        fontSize: 16,
-    },
-    title: {
-        fontSize: 27,
-        fontWeight: '700',
-        color: '#162033',
-    },
-    content: {
-        padding: 16,
-        paddingBottom: 30,
-        gap: 12,
-        flexGrow: 1,
-    },
-    filters: {
-        gap: 12,
-        marginBottom: 8,
-    },
-    label: {
-        fontSize: 14,
-        fontWeight: '600',
-        color: '#334155',
-    },
-    segmented: {
-        flexDirection: 'row',
-        padding: 4,
-        borderRadius: 10,
-        backgroundColor: '#E2E8F0',
-    },
-    segment: {
-        flex: 1,
-        padding: 12,
-        alignItems: 'center',
-        borderRadius: 8,
-    },
-    segmentSelected: {
-        backgroundColor: '#2563EB',
-    },
-    segmentText: {
-        color: '#475569',
-        fontWeight: '600',
-    },
-    segmentTextSelected: {
-        color: '#FFFFFF',
-    },
-    input: {
-        backgroundColor: '#FFFFFF',
-        borderRadius: 10,
-        borderWidth: 1,
-        borderColor: '#CBD5E1',
-        padding: 13,
-        fontSize: 15,
-        color: '#162033',
-    },
-    actions: {
-        flexDirection: 'row',
-        gap: 10,
-    },
-    primaryButton: {
-        backgroundColor: '#2563EB',
-        paddingVertical: 12,
-        paddingHorizontal: 20,
-        borderRadius: 10,
-        alignItems: 'center',
-    },
-    primaryText: {
-        color: '#FFFFFF',
-        fontWeight: '600',
-    },
-    secondaryButton: {
-        backgroundColor: '#FFFFFF',
-        borderWidth: 1,
-        borderColor: '#CBD5E1',
-        paddingVertical: 12,
-        paddingHorizontal: 20,
-        borderRadius: 10,
-    },
-    secondaryButtonText: {
-        color: '#334155',
-        fontWeight: '600',
-    },
-    categoryOptions: {
-        gap: 8,
-        paddingVertical: 4,
-    },
-    categoryChip: {
-        borderRadius: 20,
-        paddingVertical: 10,
-        paddingHorizontal: 15,
-        backgroundColor: '#FFFFFF',
-        borderWidth: 1,
-        borderColor: '#CBD5E1',
-    },
-    categoryChipSelected: {
-        backgroundColor: '#2563EB',
-        borderColor: '#2563EB',
-    },
-    chipText: {
-        color: '#334155',
-        fontWeight: '600',
-    },
-    chipTextSelected: {
-        color: '#FFFFFF',
-    },
-    limitOptions: {
-        flexDirection: 'row',
-        gap: 10,
-    },
-    limitButton: {
-        backgroundColor: '#FFFFFF',
-        paddingVertical: 9,
-        paddingHorizontal: 20,
-        borderWidth: 1,
-        borderColor: '#CBD5E1',
-        borderRadius: 8,
-    },
-    limitSelected: {
-        backgroundColor: '#2563EB',
-        borderColor: '#2563EB',
-    },
-    limitText: {
-        color: '#334155',
-        fontWeight: '600',
-    },
-    limitTextSelected: {
-        color: '#FFFFFF',
-    },
-    resultsHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginTop: 10,
-    },
-    refresh: {
-        color: '#2563EB',
-        fontWeight: '600',
-    },
-    card: {
-        backgroundColor: '#FFFFFF',
-        borderWidth: 1,
-        borderColor: '#E2E8F0',
-        borderRadius: 12,
-        padding: 16,
-        gap: 10,
-    },
-    cardTop: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        gap: 12,
-        alignItems: 'flex-start',
-    },
-    productName: {
-        flex: 1,
-        color: '#162033',
-        fontSize: 17,
-        fontWeight: '700',
-    },
-    price: {
-        color: '#162033',
-        fontSize: 17,
-        fontWeight: '700',
-    },
-    detail: {
-        color: '#64748B',
-        fontSize: 14,
-    },
-    active: {
-        color: '#16845D',
-        fontSize: 13,
-        fontWeight: '600',
-    },
-    inactive: {
-        color: '#DC2626',
-        fontSize: 13,
-        fontWeight: '600',
-    },
-    center: {
-        padding: 30,
-        alignItems: 'center',
-        gap: 14,
-    },
-    error: {
-        color: '#DC2626',
-        textAlign: 'center',
-    },
-    warning: {
-        color: '#D97706',
-        fontSize: 13,
-    },
-    empty: {
-        color: '#64748B',
-        textAlign: 'center',
-        padding: 30,
-    },
-    pagination: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        gap: 8,
-        marginTop: 14,
-    },
-    pageButton: {
-        backgroundColor: '#2563EB',
-        padding: 12,
-        borderRadius: 8,
-    },
-    pageButtonText: {
-        color: '#FFFFFF',
-        fontWeight: '600',
-        fontSize: 13,
-    },
-    pageInfo: {
-        alignItems: 'center',
-        gap: 4,
-    },
-    pageText: {
-        color: '#162033',
-        fontSize: 13,
-        fontWeight: '600',
-    },
-    pageSubtext: {
-        color: '#64748B',
-        fontSize: 11,
-    },
-    disabled: {
-        opacity: 0.4,
-    },
-    openDetail: {
-        textAlign: 'right',
-        color: '#2563EB',
-        fontSize: 13,
-        fontWeight: '600',
-        marginTop: 6,
-    },
-    newButton: {
-        backgroundColor: '#16845D',
-        padding: 14,
-        borderRadius: 10,
-        alignItems: 'center',
-        marginTop: 4,
-    },
-
-    newButtonText: {
-        color: '#FFFFFF',
-        fontSize: 15,
-        fontWeight: '600',
-    },
+  container: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+  },
+  appbar: {
+    backgroundColor: '#FFFFFF',
+  },
+  appbarTitle: {
+    fontWeight: '700',
+    color: '#162033',
+  },
+  topPanel: {
+    backgroundColor: '#F8FAFC',
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 6,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E2E8F0',
+    gap: 10,
+  },
+  searchbar: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    height: 46,
+  },
+  searchInput: {
+    minHeight: 0,
+    fontSize: 15,
+  },
+  chipsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 2,
+  },
+  chip: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+  },
+  chipText: {
+    color: '#334155',
+    fontSize: 13,
+  },
+  chipEstadoSelected: {
+    backgroundColor: '#DBEAFE',
+    borderColor: '#2563EB',
+  },
+  chipInactivoSelected: {
+    backgroundColor: '#FEE2E2',
+    borderColor: '#DC2626',
+  },
+  chipInactivoText: {
+    color: '#DC2626',
+    fontWeight: '600',
+    fontSize: 13,
+  },
+  chipCategorySelected: {
+    backgroundColor: '#EFF6FF',
+    borderColor: '#2563EB',
+  },
+  chipSelectedText: {
+    color: '#1D4ED8',
+    fontWeight: '600',
+    fontSize: 13,
+  },
+  chipSeparator: {
+    width: 1,
+    height: 22,
+    backgroundColor: '#CBD5E1',
+    marginHorizontal: 2,
+  },
+  categoryLoader: {
+    marginHorizontal: 8,
+  },
+  warningText: {
+    color: '#D97706',
+  },
+  resultsBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  resultsText: {
+    color: '#64748B',
+    fontWeight: '500',
+  },
+  limitAnchorContent: {
+    flexDirection: 'row-reverse',
+  },
+  limitAnchorLabel: {
+    fontSize: 12,
+    color: '#2563EB',
+  },
+  listWrapper: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+  },
+  flatListContent: {
+    paddingBottom: 88,
+    flexGrow: 1,
+  },
+  productRow: {
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+  },
+  rowInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  tagCircle: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  rowInfo: {
+    flex: 1,
+    gap: 3,
+  },
+  productTitle: {
+    fontWeight: '600',
+    color: '#162033',
+  },
+  productSubtitle: {
+    color: '#64748B',
+  },
+  activeLabel: {
+    color: '#16845D',
+    fontWeight: '600',
+  },
+  inactiveLabel: {
+    color: '#DC2626',
+    fontWeight: '600',
+  },
+  rowRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  priceText: {
+    fontWeight: '700',
+    color: '#162033',
+  },
+  rowDivider: {
+    marginLeft: 70,
+    backgroundColor: '#E2E8F0',
+  },
+  fab: {
+    position: 'absolute',
+    right: 16,
+    bottom: 16,
+    backgroundColor: '#16845D',
+    borderRadius: 16,
+  },
+  paginationBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    backgroundColor: '#FFFFFF',
+    borderTopWidth: 1,
+    borderTopColor: '#E2E8F0',
+  },
+  nextButtonContent: {
+    flexDirection: 'row-reverse',
+  },
+  pageInfo: {
+    alignItems: 'center',
+  },
+  pageText: {
+    color: '#162033',
+    fontWeight: '600',
+  },
+  pageSubtext: {
+    color: '#64748B',
+    fontSize: 11,
+  },
+  center: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 24,
+    gap: 12,
+  },
+  emptyContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingTop: 48,
+    paddingHorizontal: 24,
+    gap: 10,
+  },
+  mutedText: {
+    color: '#64748B',
+    textAlign: 'center',
+  },
+  errorText: {
+    color: '#DC2626',
+    textAlign: 'center',
+  },
 });
